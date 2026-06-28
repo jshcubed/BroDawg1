@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Number Guessing Game</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      padding: 2rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 0.25rem;
+      color: #a78bfa;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: #a0a0c0;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      border: 2px solid #2a2a4a;
+      background: #0f0f1a;
+      color: #e0e0f0;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: #a78bfa; }
+
+    .difficulty-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .diff-btn {
+      flex: 1;
+      padding: 0.6rem;
+      border-radius: 10px;
+      border: 2px solid #2a2a4a;
+      background: #0f0f1a;
+      color: #a0a0c0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .diff-btn.selected {
+      border-color: #a78bfa;
+      color: #a78bfa;
+      background: #1e1040;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 10px;
+      border: none;
+      background: #a78bfa;
+      color: #0f0f1a;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-bottom: 0.5rem;
+    }
+
+    .btn:hover { background: #c4b0fd; }
+    .btn:active { transform: scale(0.98); }
+    .btn.secondary {
+      background: #2a2a4a;
+      color: #a0a0c0;
+    }
+    .btn.secondary:hover { background: #3a3a5a; }
+
+    .message {
+      text-align: center;
+      font-size: 1.1rem;
+      margin: 1rem 0;
+      min-height: 1.5rem;
+      font-weight: 600;
+    }
+
+    .message.success { color: #4ade80; }
+    .message.error   { color: #f87171; }
+    .message.hint    { color: #facc15; }
+    .message.info    { color: #60a5fa; }
+
+    .attempts-bar {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+
+    .attempt-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2a2a4a;
+      transition: background 0.3s;
+    }
+
+    .attempt-dot.used   { background: #a78bfa; }
+    .attempt-dot.last   { background: #f87171; }
+    .attempt-dot.win    { background: #4ade80; }
+
+    .section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+      margin-bottom: 0.75rem;
+    }
+
+    .leaderboard-list {
+      list-style: none;
+    }
+
+    .leaderboard-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #2a2a4a;
+      font-size: 0.9rem;
+    }
+
+    .leaderboard-list li:last-child { border-bottom: none; }
+    .rank { color: #a78bfa; font-weight: 700; width: 1.5rem; }
+    .score-name { flex: 1; padding-left: 0.5rem; }
+    .score-detail { color: #888; font-size: 0.8rem; }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 0.6rem;
+      border-radius: 10px;
+      border: 2px solid #2a2a4a;
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      border-color: #a78bfa;
+      color: #a78bfa;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .reverse-guess {
+      text-align: center;
+      font-size: 3rem;
+      font-weight: 700;
+      color: #a78bfa;
+      margin: 1rem 0;
+    }
+
+    .reverse-btns {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .reverse-btns .btn {
+      font-size: 0.9rem;
+    }
+
+    .reverse-btns .btn.green  { background: #4ade80; }
+    .reverse-btns .btn.yellow { background: #facc15; }
+    .reverse-btns .btn.red    { background: #f87171; }
+
+    .empty { color: #555; text-align: center; padding: 1rem 0; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎮 Guess</h1>
+  <p class="subtitle">Number Guessing Game</p>
+
+  <!-- SETUP SCREEN -->
+  <div class="card screen active" id="screen-setup">
+    <label>Your Name</label>
+    <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" />
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchMode('normal')">You Guess</button>
+      <button class="tab" onclick="switchMode('reverse')">Computer Guesses</button>
+    </div>
+
+    <div id="difficulty-section">
+      <label>Difficulty</label>
+      <div class="difficulty-group">
+        <button class="diff-btn selected" onclick="selectDiff(this,'easy',10)">Easy<br><small>10 guesses</small></button>
+        <button class="diff-btn" onclick="selectDiff(this,'medium',7)">Medium<br><small>7 guesses</small></button>
+        <button class="diff-btn" onclick="selectDiff(this,'hard',5)">Hard<br><small>5 guesses</small></button>
+      </div>
+    </div>
+
+    <button class="btn" onclick="startGame()">Start Game</button>
+    <button class="btn secondary" onclick="showScreen('screen-leaderboard')">Leaderboard</button>
+  </div>
+
+  <!-- PLAY SCREEN -->
+  <div class="card screen" id="screen-play">
+    <div class="section-title" id="play-header"></div>
+    <div class="message info" id="play-message"></div>
+    <div class="attempts-bar" id="attempts-bar"></div>
+    <label>Your Guess (1–100)</label>
+    <input type="number" id="guess-input" min="1" max="100" placeholder="Enter a number..." />
+    <button class="btn" onclick="submitGuess()">Guess</button>
+    <button class="btn secondary" onclick="showScreen('screen-setup')">Quit</button>
+  </div>
+
+  <!-- REVERSE SCREEN -->
+  <div class="card screen" id="screen-reverse">
+    <div class="section-title">Think of a number between 1 and 100</div>
+    <div class="message info" id="reverse-message">I'm thinking...</div>
+    <div class="reverse-guess" id="reverse-guess">?</div>
+    <div class="reverse-btns">
+      <button class="btn red"    onclick="reverseRespond('high')">Too High</button>
+      <button class="btn green"  onclick="reverseRespond('correct')">Correct!</button>
+      <button class="btn yellow" onclick="reverseRespond('low')">Too Low</button>
+    </div>
+    <br>
+    <button class="btn secondary" onclick="showScreen('screen-setup')">Quit</button>
+  </div>
+
+  <!-- LEADERBOARD SCREEN -->
+  <div class="card screen" id="screen-leaderboard">
+    <div class="section-title">Leaderboard</div>
+    <ul class="leaderboard-list" id="leaderboard-list"></ul>
+    <br>
+    <button class="btn secondary" onclick="showScreen('screen-setup')">Back</button>
+  </div>
+</div>
+
+<script>
+  // --- State ---
+  let playerName = "Player";
+  let gameMode = "normal";
+  let difficulty = { name: "Easy", max: 10 };
+  let secret, attempts, maxAttempts;
+  let revLow, revHigh, revAttempts;
+
+  // --- Storage ---
+  function loadScores() {
+    return JSON.parse(localStorage.getItem("scores") || "[]");
+  }
+
+  function saveScore(name, diff, att) {
+    const scores = loadScores();
+    scores.push({ name, difficulty: diff, attempts: att });
+    scores.sort((a, b) => a.attempts - b.attempts);
+    localStorage.setItem("scores", JSON.stringify(scores.slice(0, 20)));
+  }
+
+  // --- UI Helpers ---
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    if (id === "screen-leaderboard") renderLeaderboard();
+  }
+
+  function switchMode(mode) {
+    gameMode = mode;
+    document.querySelectorAll(".tab").forEach((t, i) => {
+      t.classList.toggle("active", (i === 0 && mode === "normal") || (i === 1 && mode === "reverse"));
+    });
+    document.getElementById("difficulty-section").style.display = mode === "normal" ? "block" : "none";
+  }
+
+  function selectDiff(btn, name, max) {
+    document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    difficulty = { name, max };
+  }
+
+  function setMessage(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = "message " + type;
+  }
+
+  function buildAttemptsBar(used, max, result) {
+    const bar = document.getElementById("attempts-bar");
+    bar.innerHTML = "";
+    for (let i = 0; i < max; i++) {
+      const dot = document.createElement("div");
+      dot.className = "attempt-dot";
+      if (i < used) {
+        dot.classList.add(result === "win" && i === used - 1 ? "win" : result === "lose" && i === used - 1 ? "last" : "used");
+      }
+      bar.appendChild(dot);
+    }
+  }
+
+  // --- Normal Game ---
+  function startGame() {
+    playerName = document.getElementById("player-name").value.trim() || "Player";
+
+    if (gameMode === "reverse") {
+      startReverse();
+      return;
+    }
+
+    maxAttempts = difficulty.max;
+    secret = Math.floor(Math.random() * 100) + 1;
+    attempts = 0;
+
+    document.getElementById("play-header").textContent =
+      `${playerName} · ${difficulty.name} · ${maxAttempts} guesses`;
+    document.getElementById("guess-input").value = "";
+    setMessage("play-message", "I've picked a number. Start guessing!", "info");
+    buildAttemptsBar(0, maxAttempts, "");
+    showScreen("screen-play");
+    document.getElementById("guess-input").focus();
+  }
+
+  function submitGuess() {
+    const input = document.getElementById("guess-input");
+    const guess = parseInt(input.value);
+    input.value = "";
+
+    if (isNaN(guess) || guess < 1 || guess > 100) {
+      setMessage("play-message", "Enter a number between 1 and 100.", "error");
+      return;
+    }
+
+    attempts++;
+
+    if (guess === secret) {
+      buildAttemptsBar(attempts, maxAttempts, "win");
+      setMessage("play-message", `You got it in ${attempts} guess${attempts !== 1 ? "es" : ""}!`, "success");
+      saveScore(playerName, difficulty.name, attempts);
+      document.getElementById("guess-input").disabled = true;
+      return;
+    }
+
+    if (attempts >= maxAttempts) {
+      buildAttemptsBar(attempts, maxAttempts, "lose");
+      setMessage("play-message", `Out of guesses! The number was ${secret}.`, "error");
+      document.getElementById("guess-input").disabled = true;
+      setTimeout(() => {
+        document.getElementById("guess-input").disabled = false;
+        startGame();
+      }, 3000);
+      return;
+    }
+
+    const remaining = maxAttempts - attempts;
+    const hint = guess < secret ? "Too low! Try higher." : "Too high! Try lower.";
+    setMessage("play-message", `${hint} (${remaining} left)`, "hint");
+    buildAttemptsBar(attempts, maxAttempts, "");
+    document.getElementById("guess-input").focus();
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      if (document.getElementById("screen-play").classList.contains("active")) submitGuess();
+    }
+  });
+
+  // --- Reverse Mode ---
+  function startReverse() {
+    revLow = 1;
+    revHigh = 100;
+    revAttempts = 0;
+    showScreen("screen-reverse");
+    nextReverseGuess();
+  }
+
+  function nextReverseGuess() {
+    const guess = Math.floor((revLow + revHigh) / 2);
+    document.getElementById("reverse-guess").textContent = guess;
+    setMessage("reverse-message", `Is your number ${guess}?`, "info");
+  }
+
+  function reverseRespond(response) {
+    const guess = parseInt(document.getElementById("reverse-guess").textContent);
+    revAttempts++;
+
+    if (response === "correct") {
+      setMessage("reverse-message",
+        `Got it in ${revAttempts} guess${revAttempts !== 1 ? "es" : ""}! Binary search wins!`, "success");
+      document.getElementById("reverse-guess").textContent = "✓";
+      return;
+    }
+
+    if (response === "high") revHigh = guess - 1;
+    else revLow = guess + 1;
+
+    if (revLow > revHigh) {
+      setMessage("reverse-message", "Something doesn't add up — try again!", "error");
+      return;
+    }
+
+    nextReverseGuess();
+  }
+
+  // --- Leaderboard ---
+  function renderLeaderboard() {
+    const scores = loadScores();
+    const list = document.getElementById("leaderboard-list");
+    if (scores.length === 0) {
+      list.innerHTML = '<li><span class="empty">No scores yet — play a game!</span></li>';
+      return;
+    }
+    list.innerHTML = scores.slice(0, 10).map((s, i) => `
+      <li>
+        <span class="rank">#${i + 1}</span>
+        <span class="score-name">${s.name}</span>
+        <span class="score-detail">${s.difficulty} · ${s.attempts} guess${s.attempts !== 1 ? "es" : ""}</span>
+      </li>
+    `).join("");
+  }
+</script>
+</body>
+</html>
