@@ -65,6 +65,9 @@
   <div class="overlay" id="start-overlay">
     <div class="title">Flappy-chan</div>
     <div class="sub">✨ help her fly through the sky ✨</div>
+    <canvas id="avatar-preview" width="80" height="80" style="margin-top:1rem;"></canvas>
+    <div class="sub" id="avatar-name" style="margin-top:0.25rem; font-weight:700;"></div>
+    <button id="shuffle-btn" style="pointer-events:auto; margin-top:0.75rem; border:none; cursor:pointer; background:rgba(255,120,200,0.55); color:#fff; padding:0.5rem 1.1rem; border-radius:999px; font-size:0.9rem;">🎲 Shuffle Avatar</button>
     <div class="hint">Tap / Click / Space to flap</div>
   </div>
 
@@ -90,6 +93,25 @@ const bestScoreEl = document.getElementById("best-score");
 let state = "start"; // start, playing, over
 let score = 0;
 let best = parseInt(localStorage.getItem("flappyBest") || "0");
+
+// --- Avatars (different anime looks) ---
+const AVATARS = [
+  { name: "Sakura",   hair: "#7b4fd4", body: "#fff0f8", wing: "#ff9ed6", trim: "#ff8ec9" },
+  { name: "Hinata",   hair: "#3a2a6a", body: "#eef2ff", wing: "#9ab8ff", trim: "#7e9bff" },
+  { name: "Momo",     hair: "#ff7eb3", body: "#fff5fa", wing: "#ffb3d1", trim: "#ff7eb3" },
+  { name: "Yuki",     hair: "#bfe3ff", body: "#ffffff", wing: "#d6f0ff", trim: "#7fc8ff" },
+  { name: "Akari",    hair: "#ff5e3a", body: "#fff3ee", wing: "#ffb199", trim: "#ff7e5e" },
+  { name: "Midori",   hair: "#3ec98a", body: "#eefff6", wing: "#9bf0c8", trim: "#3ec98a" },
+  { name: "Kiku",     hair: "#ffd24d", body: "#fffcee", wing: "#ffe79b", trim: "#ffc83d" },
+  { name: "Ren",      hair: "#222233", body: "#f4f4fa", wing: "#9a9ab0", trim: "#5a5a7a" },
+];
+let avatar = AVATARS[0];
+
+function pickRandomAvatar() {
+  avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+  document.getElementById("avatar-name").textContent = avatar.name;
+  drawAvatarPreview();
+}
 
 // --- Character ---
 const bird = {
@@ -138,6 +160,7 @@ function flap() {
     state = "start";
     overOverlay.classList.add("hidden");
     startOverlay.classList.remove("hidden");
+    pickRandomAvatar();
   }
 }
 
@@ -231,60 +254,68 @@ function drawPipe(p) {
   drawPillar(p.top + GAP, H - p.top - GAP);
 }
 
+// Draws the character at the current ctx origin using the given avatar + wing offset
+function drawCharacter(c, av, r, wingY) {
+  // Wing (behind body)
+  c.fillStyle = av.wing;
+  c.beginPath();
+  c.ellipse(-6, wingY, 12, 8, -0.4, 0, Math.PI * 2);
+  c.fill();
+
+  // Body
+  c.fillStyle = av.body;
+  c.beginPath();
+  c.arc(0, 0, r, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = av.trim;
+  c.lineWidth = 2;
+  c.stroke();
+
+  // Hair (anime fringe)
+  c.fillStyle = av.hair;
+  c.beginPath();
+  c.arc(0, -4, r, Math.PI, 0);
+  c.fill();
+  // hair spikes
+  c.beginPath();
+  c.moveTo(-r, -2); c.lineTo(-r - 4, 6); c.lineTo(-r + 6, 2);
+  c.fill();
+  c.beginPath();
+  c.moveTo(r, -2); c.lineTo(r + 4, 6); c.lineTo(r - 6, 2);
+  c.fill();
+
+  // Eyes (big anime eyes)
+  c.fillStyle = "#3a2a5a";
+  c.beginPath(); c.arc(-5, 2, 4, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(7, 2, 4, 0, Math.PI * 2); c.fill();
+  c.fillStyle = "#fff";
+  c.beginPath(); c.arc(-4, 1, 1.5, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(8, 1, 1.5, 0, Math.PI * 2); c.fill();
+
+  // Blush
+  c.fillStyle = "rgba(255,150,190,0.6)";
+  c.beginPath(); c.arc(-9, 7, 3, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(11, 7, 3, 0, Math.PI * 2); c.fill();
+}
+
 function drawBird() {
   ctx.save();
   ctx.translate(bird.x, bird.y);
   const tilt = Math.max(-0.5, Math.min(1.0, bird.vy / 12));
   ctx.rotate(tilt);
-
-  // Wing (behind body)
   bird.wingPhase += 0.3;
-  const wingY = Math.sin(bird.wingPhase) * 6;
-  ctx.fillStyle = "#ff9ed6";
-  ctx.beginPath();
-  ctx.ellipse(-6, wingY, 12, 8, -0.4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Body
-  ctx.fillStyle = "#fff0f8";
-  ctx.beginPath();
-  ctx.arc(0, 0, bird.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#ff8ec9";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Hair (anime fringe)
-  ctx.fillStyle = "#7b4fd4";
-  ctx.beginPath();
-  ctx.arc(0, -4, bird.r, Math.PI, 0);
-  ctx.fill();
-  // hair spikes
-  ctx.beginPath();
-  ctx.moveTo(-bird.r, -2);
-  ctx.lineTo(-bird.r - 4, 6);
-  ctx.lineTo(-bird.r + 6, 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(bird.r, -2);
-  ctx.lineTo(bird.r + 4, 6);
-  ctx.lineTo(bird.r - 6, 2);
-  ctx.fill();
-
-  // Eyes (big anime eyes)
-  ctx.fillStyle = "#3a2a5a";
-  ctx.beginPath(); ctx.arc(-5, 2, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(7, 2, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.beginPath(); ctx.arc(-4, 1, 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8, 1, 1.5, 0, Math.PI * 2); ctx.fill();
-
-  // Blush
-  ctx.fillStyle = "rgba(255,150,190,0.6)";
-  ctx.beginPath(); ctx.arc(-9, 7, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, 7, 3, 0, Math.PI * 2); ctx.fill();
-
+  drawCharacter(ctx, avatar, bird.r, Math.sin(bird.wingPhase) * 6);
   ctx.restore();
+}
+
+function drawAvatarPreview() {
+  const pc = document.getElementById("avatar-preview").getContext("2d");
+  pc.clearRect(0, 0, 80, 80);
+  pc.save();
+  pc.translate(40, 40);
+  pc.scale(1.6, 1.6);
+  drawCharacter(pc, avatar, bird.r, 0);
+  pc.restore();
 }
 
 function drawScore() {
@@ -340,7 +371,13 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+document.getElementById("shuffle-btn").addEventListener("click", e => {
+  e.stopPropagation();
+  pickRandomAvatar();
+});
+
 bestScoreEl.textContent = "Best: " + best;
+pickRandomAvatar();
 loop();
 </script>
 </body>
