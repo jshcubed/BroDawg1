@@ -79,6 +79,38 @@ def play(name):
 
     print(f"\nOut of guesses! The number was {secret}.")
 
+def reverse_mode(name):
+    print(f"\nOK {name}, think of a number between 1 and 100.")
+    input("Press Enter when you're ready...")
+
+    low, high = 1, 100
+    attempts = 0
+
+    while True:
+        guess = (low + high) // 2
+        attempts += 1
+        print(f"\nMy guess: {guess}")
+        print("  h = too high   l = too low   c = correct")
+
+        while True:
+            response = input("Your response: ").strip().lower()
+            if response in ("h", "l", "c"):
+                break
+            print("Please enter h, l, or c.")
+
+        if response == "c":
+            print(f"\nGot it in {attempts} guess{'es' if attempts != 1 else ''}! Binary search wins again.")
+            break
+        elif response == "h":
+            high = guess - 1
+        else:
+            low = guess + 1
+
+        if low > high:
+            print("\nHmm, something doesn't add up — did I get a wrong answer? Try again!")
+            break
+
+
 def main():
     print("\n🎮 Number Guessing Game")
     print("=======================")
@@ -86,18 +118,21 @@ def main():
 
     while True:
         print("\nWhat would you like to do?")
-        print("  1. Play")
-        print("  2. View leaderboard")
-        print("  3. Quit")
-        choice = input("Enter 1, 2, or 3: ").strip()
+        print("  1. Play (you guess)")
+        print("  2. Reverse mode (computer guesses)")
+        print("  3. View leaderboard")
+        print("  4. Quit")
+        choice = input("Enter 1, 2, 3, or 4: ").strip()
         if choice == "1":
             play(name)
         elif choice == "2":
-            show_leaderboard()
+            reverse_mode(name)
         elif choice == "3":
+            show_leaderboard()
+        elif choice == "4":
             print(f"\nSee you next time, {name}!\n")
             break
         else:
-            print("Please enter 1, 2, or 3.")
+            print("Please enter 1, 2, 3, or 4.")
 
 main()
