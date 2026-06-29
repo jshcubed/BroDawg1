@@ -128,6 +128,28 @@
   .hpbar > div { height: 100%; background: #ff5d8f; border-radius: 7px; transition: width 0.3s; }
   .b-act { background: #ff7b54; color: #fff; border: none; border-radius: 10px; padding: 0.55rem 0.9rem; font-weight: 700; cursor: pointer; }
   .b-act:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* battle juice */
+  #battle-modal .modal { position: relative; overflow: hidden; }
+  @keyframes shake { 0%,100%{transform:translate(0,0);} 20%{transform:translate(-6px,3px);} 40%{transform:translate(6px,-3px);} 60%{transform:translate(-5px,-2px);} 80%{transform:translate(5px,2px);} }
+  .shaking { animation: shake 0.35s ease-in-out; }
+  @keyframes hitflash { 0%,100%{ box-shadow:none; } 50%{ box-shadow:0 0 0 3px #ff4d4d inset, 0 0 18px #ff4d4d; } }
+  .flashing { animation: hitflash 0.35s ease-out; }
+  .dmg-float {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-weight: 800; font-size: 1.4rem; pointer-events: none; z-index: 5;
+    text-shadow: 0 2px 4px #000; animation: dmgRise 0.9s ease-out forwards;
+  }
+  @keyframes dmgRise { 0%{opacity:0; transform:translate(-50%,0) scale(0.6);} 20%{opacity:1;} 100%{opacity:0; transform:translate(-50%,-44px) scale(1.15);} }
+
+  /* stat alert badge */
+  #alert-badge {
+    position: absolute; top: 8px; left: 8px; z-index: 3;
+    background: rgba(220,40,40,0.92); color: #fff; font-weight: 800; font-size: 0.72rem;
+    padding: 0.2rem 0.55rem; border-radius: 999px; display: none;
+    animation: alertPulse 1s ease-in-out infinite;
+  }
+  @keyframes alertPulse { 0%,100%{ transform: scale(1); opacity: 0.9; } 50%{ transform: scale(1.12); opacity: 1; } }
 </style>
 </head>
 <body>
@@ -150,6 +172,7 @@
     </div>
 
     <div class="stage" id="stage">
+      <div id="alert-badge"></div>
       <div id="decor-area"></div>
       <div class="zzz" id="zzz" style="display:none;">💤</div>
       <div class="dragon" id="dragon" onclick="petDragon()"><canvas id="dragon-canvas" width="150" height="130"></canvas></div>
@@ -383,13 +406,13 @@
 <div class="modal-bg" id="battle-modal">
   <div class="modal">
     <h2>⚔️ Dragon Battle</h2>
-    <div class="battle-side">
+    <div class="battle-side" id="foe-panel">
       <div class="battle-row"><span class="b-emoji" id="foe-emoji">🐲</span>
         <span class="b-info"><b id="foe-name">Wild Dragon</b><small id="foe-stats"></small></span></div>
       <div class="hpbar"><div id="foe-hp"></div></div>
     </div>
     <div style="text-align:center; font-size:1.3rem; margin:0.4rem 0; color:#ff7b54;">⚔️ VS ⚔️</div>
-    <div class="battle-side">
+    <div class="battle-side" id="you-panel">
       <div class="battle-row"><span class="b-emoji" id="you-emoji">🐲</span>
         <span class="b-info"><b id="you-name">You</b><small id="you-stats"></small></span></div>
       <div class="hpbar"><div id="you-hp" style="background:#4ecdc4;"></div></div>
@@ -1172,6 +1195,39 @@ function startBattle() {
 
 function setBattleLog(msg) { document.getElementById("battle-log").textContent = msg; }
 
+// --- battle juice: shake, flash, floating damage numbers ---
+function battleShake(big) {
+  const m = document.querySelector("#battle-modal .modal");
+  if (!m) return;
+  m.classList.remove("shaking"); void m.offsetWidth; // restart animation
+  m.classList.add("shaking");
+  if (big) setTimeout(() => { m.classList.remove("shaking"); void m.offsetWidth; m.classList.add("shaking"); }, 120);
+}
+function flashPanel(which) {
+  const el = document.getElementById(which + "-panel");
+  if (!el) return;
+  el.classList.remove("flashing"); void el.offsetWidth; el.classList.add("flashing");
+}
+function floatDamage(which, amount, eff) {
+  const modal = document.querySelector("#battle-modal .modal");
+  const panel = document.getElementById(which + "-panel");
+  if (!modal || !panel) return;
+  const d = document.createElement("div");
+  d.className = "dmg-float";
+  d.textContent = "-" + amount + (eff > 1 ? "!" : "");
+  d.style.color = eff > 1 ? "#ffd24d" : eff < 1 ? "#9ad0ff" : "#ff5d5d";
+  if (eff > 1) d.style.fontSize = "1.7rem";
+  // place near the panel
+  d.style.top = (panel.offsetTop + 6) + "px";
+  modal.appendChild(d);
+  setTimeout(() => d.remove(), 900);
+}
+function juiceHit(targetWhich, amount, eff) {
+  flashPanel(targetWhich);
+  floatDamage(targetWhich, amount, eff);
+  battleShake(eff > 1);
+}
+
 function livingTeam() { return battle.team.filter(f => !f.fainted); }
 function teamDots() {
   return battle.team.map((f, i) =>
@@ -1259,6 +1315,7 @@ function playerMove(move) {
     battle.foe.hp -= r.amount;
     if (r.heal) { battle.you.hp = Math.min(battle.you.max, battle.you.hp + r.heal); }
     if (r.freeze) battle.foe.frozen = true;
+    juiceHit("foe", r.amount, r.eff);
     setBattleLog(`${battle.you.name} ${sig ? "casts " + sig.name + " for " : "hits for "}${r.amount}!${effNote(r.eff)}${r.heal ? " Drained " + r.heal + " HP. 💚" : ""}${r.freeze ? " The foe is frozen! ❄️" : ""}`);
   }
   renderBattle();
@@ -1307,6 +1364,7 @@ function foeTurnStart() {
     if (r.heal) battle.foe.hp = Math.min(battle.foe.max, battle.foe.hp + r.heal);
     if (r.freeze) battle.you.frozen = true;
     SFX.heal();
+    juiceHit("you", r.amount, r.eff);
     setBattleLog(`${battle.foe.name} ${sig ? "uses " + sig.name + " for " : "strikes for "}${r.amount}!${effNote(r.eff)}${r.freeze ? " You're frozen! ❄️" : ""}`);
   }
   renderBattle();
@@ -1853,6 +1911,19 @@ function render() {
   // the dragon itself is drawn on the canvas by the animation loop; just toggle bobbing
   document.getElementById("dragon").classList.toggle("sleeping", pet.sleeping);
 
+  // stat alert badge — flashes when a need is critically low
+  const badge = document.getElementById("alert-badge");
+  if (pet.hatched && pet.alive) {
+    const needs = [];
+    if (pet.hunger < 20) needs.push("🍖 Hungry");
+    if (pet.happy < 20) needs.push("😢 Sad");
+    if (pet.energy < 20 && !pet.sleeping) needs.push("⚡ Tired");
+    if (pet.health < 25) needs.push("❤️ Sick");
+    if (pet.poops >= 3) needs.push("💩 Dirty");
+    if (needs.length) { badge.style.display = "block"; badge.textContent = "⚠️ " + needs.join(" · "); }
+    else badge.style.display = "none";
+  } else badge.style.display = "none";
+
   // seasonal background, with a night override by real clock
   const hr = new Date().getHours();
   const night = hr < 6 || hr >= 19;
@@ -1941,9 +2012,17 @@ function drawDragon(c, t) {
   const sick = pet.hatched && pet.health < 30 && pet.alive;
   const flap = Math.sin(t / 180) * (sleeping ? 0.05 : 0.4);
   const breathe = Math.sin(t / 500) * 1.5;
+  // idle animations: an occasional little hop, and looking around
+  let hop = 0, lookX = 0;
+  if (!sleeping) {
+    const hopPhase = t % 9000;
+    if (hopPhase < 460) hop = -Math.sin(hopPhase / 460 * Math.PI) * 9;
+    const lookPhase = t % 6000;
+    if (lookPhase < 1300) lookX = Math.sin(lookPhase / 1300 * Math.PI) * 3 * ((Math.floor(t / 6000) % 2) ? 1 : -1);
+  }
 
   c.save();
-  c.translate(75, 66 + breathe);
+  c.translate(75, 66 + breathe + hop);
   c.scale(scale, scale);
   if (sick) c.globalAlpha = 0.85;
 
@@ -1999,7 +2078,7 @@ function drawDragon(c, t) {
     c.fillStyle = "#fff";
     c.beginPath(); c.arc(-6, -23, 4, 0, 7); c.arc(6, -23, 4, 0, 7); c.fill();
     c.fillStyle = sick ? "#5a8" : "#23233a";
-    c.beginPath(); c.arc(-5, -22, 2, 0, 7); c.arc(7, -22, 2, 0, 7); c.fill();
+    c.beginPath(); c.arc(-5 + lookX, -22, 2, 0, 7); c.arc(7 + lookX, -22, 2, 0, 7); c.fill();
   }
 
   // rosy cheeks
