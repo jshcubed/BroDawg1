@@ -9,127 +9,125 @@
   body {
     font-family: 'Segoe UI', sans-serif;
     background: linear-gradient(160deg, #2a1a4a 0%, #1a1030 60%, #0d0820 100%);
-    color: #fff;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
+    color: #fff; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
   }
   .device {
-    width: 100%;
-    max-width: 380px;
+    width: 100%; max-width: 380px;
     background: linear-gradient(145deg, #ff7b54, #d94f9c);
-    border-radius: 40px;
-    padding: 1.5rem 1.5rem 2rem;
+    border-radius: 40px; padding: 1.25rem 1.5rem 1.75rem;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 2px 8px rgba(255,255,255,0.3);
   }
   .brand {
-    text-align: center;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #fff8;
-    margin-bottom: 0.75rem;
-    font-size: 0.9rem;
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 800; letter-spacing: 1px; color: #fff8; margin-bottom: 0.6rem; font-size: 0.85rem;
   }
   .brand b { color: #fff; }
+  .topright { display: flex; align-items: center; gap: 0.5rem; }
+  .coins { background: rgba(0,0,0,0.3); border-radius: 999px; padding: 0.15rem 0.6rem; color: #ffd700; font-weight: 800; }
+  .mute-btn { background: rgba(0,0,0,0.3); border: none; border-radius: 999px; color: #fff; cursor: pointer; padding: 0.15rem 0.45rem; font-size: 0.9rem; }
 
   .screen {
-    background: #cfe8c0;
-    border-radius: 20px;
-    padding: 1rem;
-    box-shadow: inset 0 3px 10px rgba(0,0,0,0.3);
-    border: 4px solid #3a2a1a;
+    background: #cfe8c0; border-radius: 20px; padding: 1rem;
+    box-shadow: inset 0 3px 10px rgba(0,0,0,0.3); border: 4px solid #3a2a1a;
   }
-
-  .stage {
-    height: 180px;
-    background: linear-gradient(180deg, #aee0ff 0%, #d8f5d0 100%);
-    border-radius: 12px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .dragon {
-    font-size: 5rem;
-    transition: transform 0.2s;
-    animation: bob 2s ease-in-out infinite;
-    cursor: pointer;
-    user-select: none;
-  }
-  .dragon.sleeping { animation: none; filter: grayscale(0.3) brightness(0.8); }
-  .dragon.sick { filter: hue-rotate(80deg) brightness(0.85); }
-  @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-12px);} }
-
-  .zzz {
-    position: absolute; top: 30px; right: 90px;
-    font-size: 1.5rem; opacity: 0; color: #557;
-    animation: float 2.5s ease-in-out infinite;
-  }
-  @keyframes float { 0%{opacity:0; transform: translateY(0);} 30%{opacity:1;} 100%{opacity:0; transform: translateY(-30px);} }
-
-  .poop { position: absolute; bottom: 8px; font-size: 1.5rem; }
-
   .name-age {
-    display: flex; justify-content: space-between;
-    margin: 0.6rem 0.25rem 0.4rem;
+    display: flex; justify-content: space-between; margin: 0 0.25rem 0.4rem;
     font-size: 0.85rem; color: #2a3a1a; font-weight: 700;
   }
-  .stage-badge {
-    background: #3a2a1a; color: #ffd; border-radius: 999px;
-    padding: 0 0.5rem; font-size: 0.7rem;
-  }
+  .stage-badge { background: #3a2a1a; color: #ffd; border-radius: 999px; padding: 0 0.5rem; font-size: 0.7rem; }
 
-  .stats { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem; }
+  .stage {
+    height: 180px; background: linear-gradient(180deg, #aee0ff 0%, #d8f5d0 100%);
+    border-radius: 12px; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stage.night { background: linear-gradient(180deg, #2a2a55 0%, #3a4a3a 100%); }
+  .dragon {
+    font-size: 5rem; transition: transform 0.2s; animation: bob 2s ease-in-out infinite;
+    cursor: pointer; user-select: none;
+  }
+  .dragon.sleeping { animation: none; filter: grayscale(0.3) brightness(0.8) !important; }
+  .dragon.sick { filter: hue-rotate(80deg) brightness(0.85) !important; }
+  @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-12px);} }
+
+  .zzz { position: absolute; top: 30px; right: 90px; font-size: 1.5rem; color: #557; animation: float 2.5s ease-in-out infinite; }
+  @keyframes float { 0%{opacity:0; transform: translateY(0);} 30%{opacity:1;} 100%{opacity:0; transform: translateY(-30px);} }
+  .poop { position: absolute; bottom: 8px; font-size: 1.5rem; }
+
+  .mood {
+    position: absolute; bottom: 70px; font-size: 1.6rem; pointer-events: none;
+    animation: moodRise 1.2s ease-out forwards;
+  }
+  @keyframes moodRise { 0%{opacity:0; transform: translateY(10px) scale(0.5);} 20%{opacity:1;} 100%{opacity:0; transform: translateY(-50px) scale(1.2);} }
+
+  .stats { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
   .stat { display: flex; align-items: center; gap: 0.4rem; }
   .stat .label { width: 70px; font-size: 0.75rem; color: #2a3a1a; font-weight: 700; }
   .bar { flex: 1; height: 12px; background: #88996680; border-radius: 6px; overflow: hidden; }
   .bar > div { height: 100%; border-radius: 6px; transition: width 0.4s; }
-  .fill-hunger { background: #ff8c42; }
-  .fill-happy  { background: #ffd23f; }
-  .fill-energy { background: #4ecdc4; }
-  .fill-health { background: #ff5d8f; }
+  .fill-hunger { background: #ff8c42; } .fill-happy { background: #ffd23f; }
+  .fill-energy { background: #4ecdc4; } .fill-health { background: #ff5d8f; }
 
-  .buttons {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 0.6rem; margin-top: 1.25rem;
-  }
+  .buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1rem; }
   .btn {
-    border: none; border-radius: 14px;
-    background: #3a2a1a; color: #fff;
-    padding: 0.7rem 0.3rem; font-size: 0.8rem; font-weight: 700;
-    cursor: pointer; transition: transform 0.1s, background 0.15s;
-    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    border: none; border-radius: 14px; background: #3a2a1a; color: #fff;
+    padding: 0.6rem 0.3rem; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    transition: transform 0.1s, background 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
   }
-  .btn span.ico { font-size: 1.3rem; }
-  .btn:hover { background: #55402a; }
-  .btn:active { transform: scale(0.94); }
+  .btn span.ico { font-size: 1.2rem; }
+  .btn:hover { background: #55402a; } .btn:active { transform: scale(0.94); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .message {
-    text-align: center; margin: 0.75rem 0 0.25rem;
-    min-height: 1.2rem; font-size: 0.85rem; color: #2a3a1a; font-weight: 600;
-  }
+  .message { text-align: center; margin: 0.75rem 0 0.25rem; min-height: 1.2rem; font-size: 0.85rem; color: #2a3a1a; font-weight: 600; }
 
+  /* overlays */
   .overlay {
-    position: absolute; inset: 0;
-    background: rgba(20,10,30,0.92);
-    border-radius: 12px;
-    display: none; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    color: #fff; padding: 1rem;
+    position: absolute; inset: 0; background: rgba(20,10,30,0.92); border-radius: 12px;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #fff; padding: 1rem;
   }
   .overlay.show { display: flex; }
   .overlay h2 { color: #ff7b54; margin-bottom: 0.5rem; }
   .overlay p { font-size: 0.85rem; margin-bottom: 1rem; color: #ddd; }
   .overlay .btn { background: #ff7b54; flex-direction: row; }
+
+  /* mini-game */
+  #minigame-hud { position: absolute; top: 6px; left: 8px; right: 8px; display: flex; justify-content: space-between; font-weight: 800; color: #2a3a1a; font-size: 0.85rem; z-index: 2; }
+  .gem { position: absolute; font-size: 1.6rem; cursor: pointer; user-select: none; }
+
+  /* modal (shop / gallery) */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 20; padding: 1rem; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #1c1238; border: 2px solid #ff7b54; border-radius: 18px; padding: 1.25rem; max-width: 360px; width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal h2 { color: #ffd700; text-align: center; margin-bottom: 0.25rem; }
+  .modal .sub { text-align: center; color: #bba; font-size: 0.8rem; margin-bottom: 1rem; }
+  .shop-item, .dex-item {
+    display: flex; align-items: center; gap: 0.6rem; background: #2a1f4a;
+    border-radius: 12px; padding: 0.6rem 0.8rem; margin-bottom: 0.5rem;
+  }
+  .shop-item .emoji, .dex-item .emoji { font-size: 1.8rem; }
+  .shop-item .info, .dex-item .info { flex: 1; }
+  .shop-item .info b, .dex-item .info b { display: block; }
+  .shop-item .info small, .dex-item .info small { color: #aa9; font-size: 0.72rem; }
+  .shop-item button { background: #ffd700; color: #222; border: none; border-radius: 10px; padding: 0.4rem 0.7rem; font-weight: 800; cursor: pointer; }
+  .shop-item button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .modal .close { width: 100%; margin-top: 0.5rem; background: #555; color: #fff; border: none; border-radius: 12px; padding: 0.6rem; font-weight: 700; cursor: pointer; }
+  .dex-empty { text-align: center; color: #887; padding: 1rem; }
+  .dex-progress { text-align: center; color: #ffd700; font-weight: 700; margin-bottom: 0.75rem; }
 </style>
 </head>
 <body>
 <div class="device">
-  <div class="brand">🐉 <b>DRAGONGOTCHI</b> 🐉</div>
+  <div class="brand">
+    <span>🐉 <b>DRAGONGOTCHI</b></span>
+    <span class="topright">
+      <span class="coins">🪙 <span id="coin-count">0</span></span>
+      <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
+    </span>
+  </div>
+
   <div class="screen">
     <div class="name-age">
       <span id="pet-name">Drako</span>
@@ -137,15 +135,27 @@
       <span id="pet-age">Age: 0</span>
     </div>
 
-    <div class="stage">
-      <div class="zzz" id="zzz">💤</div>
+    <div class="stage" id="stage">
+      <div class="zzz" id="zzz" style="display:none;">💤</div>
       <div class="dragon" id="dragon" onclick="petDragon()">🥚</div>
       <div id="poop-area"></div>
 
+      <!-- death overlay -->
       <div class="overlay" id="death-overlay">
         <h2>💀 Oh no…</h2>
         <p id="death-text">Your dragon has passed away.</p>
         <button class="btn" onclick="restart()">🥚 Hatch a New Dragon</button>
+      </div>
+
+      <!-- mini-game overlay -->
+      <div class="overlay" id="minigame-overlay" style="background:rgba(180,225,255,0.95);">
+        <div id="minigame-hud"><span>Score: <span id="mg-score">0</span></span><span>⏱ <span id="mg-time">20</span></span></div>
+        <div id="mg-intro">
+          <h2 style="color:#2a3a1a;">💎 Gem Catch</h2>
+          <p style="color:#2a3a1a;">Tap the falling gems! Each one = 1 🪙. You have 20 seconds.</p>
+          <button class="btn" style="background:#2ecc71;" onclick="startGemGame()">▶ Start</button>
+          <button class="btn" style="background:#888; margin-top:0.4rem;" onclick="closeMiniGame()">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -165,38 +175,54 @@
     <button class="btn" id="btn-sleep" onclick="toggleSleep()"><span class="ico">😴</span>Sleep</button>
     <button class="btn" id="btn-clean" onclick="clean()"><span class="ico">🧹</span>Clean</button>
     <button class="btn" id="btn-heal"  onclick="heal()"><span class="ico">💊</span>Heal</button>
+    <button class="btn" id="btn-game"  onclick="openMiniGame()"><span class="ico">💎</span>Mini-Game</button>
+    <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
+    <button class="btn" id="btn-dex"   onclick="openGallery()"><span class="ico">📖</span>Gallery</button>
     <button class="btn" id="btn-reset" onclick="confirmReset()"><span class="ico">🔄</span>Reset</button>
   </div>
 </div>
 
+<!-- Shop modal -->
+<div class="modal-bg" id="shop-modal">
+  <div class="modal">
+    <h2>🛒 Dragon Shop</h2>
+    <div class="sub">Spend 🪙 coins (earn them in the Mini-Game!)</div>
+    <div id="shop-list"></div>
+    <button class="close" onclick="closeShop()">Close</button>
+  </div>
+</div>
+
+<!-- Gallery modal -->
+<div class="modal-bg" id="gallery-modal">
+  <div class="modal">
+    <h2>📖 Dragon Collection</h2>
+    <div class="dex-progress" id="dex-progress"></div>
+    <div id="dex-list"></div>
+    <button class="close" onclick="closeGallery()">Close</button>
+  </div>
+</div>
+
 <script>
-// ===== Stat model (0-100) =====
+// ====================== Persistent globals ======================
+let coins = parseInt(localStorage.getItem("dragongotchiCoins") || "0");
+let dex = JSON.parse(localStorage.getItem("dragongotchiDex") || "[]");
+let muted = localStorage.getItem("dragongotchiMuted") === "1";
+function saveCoins() { localStorage.setItem("dragongotchiCoins", coins); }
+function saveDex() { localStorage.setItem("dragongotchiDex", JSON.stringify(dex)); }
+
+// ====================== Pet model ======================
 const DEFAULT = {
-  name: "Drako",
-  born: Date.now(),
-  lastTick: Date.now(),
-  hunger: 80,   // higher = more full
-  happy: 80,
-  energy: 90,
-  health: 100,
-  sleeping: false,
-  poops: 0,
-  alive: true,
-  ageMin: 0,    // age in "minutes lived"
-  hatched: false,
-  type: null,   // locked-in elemental type once Adult
-  // care habits that decide the evolution
+  name: "Drako", born: Date.now(), lastTick: Date.now(),
+  hunger: 80, happy: 80, energy: 90, health: 100,
+  sleeping: false, poops: 0, alive: true, ageMin: 0, hatched: false,
+  type: null, dexId: null,
   care: { feed: 0, play: 0, sleepMin: 0, heal: 0, pet: 0, neglect: 0 },
 };
-
 let pet = load();
 
-// deep copy of DEFAULT so the nested `care` object is never shared
 function freshPet(overrides) {
-  const base = JSON.parse(JSON.stringify(DEFAULT));
-  return Object.assign(base, overrides || {});
+  return Object.assign(JSON.parse(JSON.stringify(DEFAULT)), overrides || {});
 }
-
 function load() {
   const saved = localStorage.getItem("dragongotchi");
   if (saved) {
@@ -211,34 +237,65 @@ function load() {
 }
 function save() { localStorage.setItem("dragongotchi", JSON.stringify(pet)); }
 
-// ===== Elemental types: how you raise it decides which it becomes =====
-const TYPES = {
-  fire:   { name: "Fire",   trait: "play",     adult: "🐲🔥", elder: "🔥🐉🔥", tint: "hue-rotate(-20deg) saturate(1.4)",
-            blurb: "Raised on play and energy — a fierce Inferno Dragon! 🔥" },
-  ice:    { name: "Ice",    trait: "sleepMin", adult: "🐲❄️", elder: "❄️🐉❄️", tint: "hue-rotate(160deg) saturate(1.2)",
-            blurb: "Raised on rest and calm — a serene Frost Dragon! ❄️" },
-  storm:  { name: "Storm",  trait: "pet",      adult: "🐲⚡", elder: "⚡🐉⚡", tint: "hue-rotate(60deg) saturate(1.3)",
-            blurb: "Raised on love and affection — a dazzling Storm Dragon! ⚡" },
-  nature: { name: "Nature", trait: "feed",     adult: "🐲🌿", elder: "🌿🐉🌿", tint: "hue-rotate(90deg) saturate(1.3)",
-            blurb: "Raised on hearty meals — a mighty Verdant Dragon! 🌿" },
-  shadow: { name: "Shadow", trait: "neglect",  adult: "🐲☠️", elder: "☠️🐉☠️", tint: "grayscale(0.5) brightness(0.8)",
-            blurb: "Raised through hardship and neglect — a brooding Shadow Dragon. ☠️" },
+// ====================== Sound (Web Audio, no files) ======================
+let audioCtx = null;
+function tone(freq, dur, type, vol) {
+  if (muted) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type || "square"; o.frequency.value = freq;
+    g.gain.value = vol || 0.07;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.12));
+    o.stop(audioCtx.currentTime + (dur || 0.12));
+  } catch (e) {}
+}
+const SFX = {
+  feed:  () => { tone(330,0.1,"sine"); setTimeout(()=>tone(440,0.1,"sine"),90); },
+  play:  () => { tone(523,0.08); setTimeout(()=>tone(659,0.08),80); setTimeout(()=>tone(784,0.1),160); },
+  sleep: () => { tone(220,0.25,"sine"); },
+  clean: () => { tone(700,0.06,"triangle"); setTimeout(()=>tone(500,0.06,"triangle"),70); },
+  heal:  () => { tone(660,0.1,"sine"); setTimeout(()=>tone(880,0.12,"sine"),100); },
+  coin:  () => { tone(988,0.06,"square"); setTimeout(()=>tone(1319,0.08,"square"),60); },
+  evolve:() => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.15,"sawtooth"),i*120)); },
+  death: () => { [440,392,330,262].forEach((f,i)=>setTimeout(()=>tone(f,0.3,"sine"),i*220)); },
+  pet:   () => { tone(587,0.08,"sine"); },
+  click: () => { tone(440,0.04,"square",0.04); },
 };
-
-// Decide the type from the dominant care habit (called once at Adult stage)
-function determineType() {
-  const c = pet.care;
-  const scores = {
-    fire: c.play, ice: c.sleepMin, storm: c.pet, nature: c.feed, shadow: c.neglect,
-  };
-  let bestKey = "storm", bestVal = -1;
-  for (const k in scores) {
-    if (scores[k] > bestVal) { bestVal = scores[k]; bestKey = k; }
-  }
-  return bestKey;
+function toggleMute() {
+  muted = !muted;
+  localStorage.setItem("dragongotchiMuted", muted ? "1" : "0");
+  document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
 }
 
-// ===== Life stage based on age (minutes) =====
+// ====================== Mood reactions ======================
+function mood(emoji) {
+  const stage = document.getElementById("stage");
+  const el = document.createElement("div");
+  el.className = "mood";
+  el.textContent = emoji;
+  el.style.left = (30 + Math.random() * 50) + "%";
+  stage.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
+// ====================== Elemental types ======================
+const TYPES = {
+  fire:   { name: "Fire",   adult: "🐲🔥", elder: "🔥🐉🔥", tint: "hue-rotate(-20deg) saturate(1.4)", blurb: "Raised on play and energy — a fierce Inferno Dragon! 🔥" },
+  ice:    { name: "Ice",    adult: "🐲❄️", elder: "❄️🐉❄️", tint: "hue-rotate(160deg) saturate(1.2)", blurb: "Raised on rest and calm — a serene Frost Dragon! ❄️" },
+  storm:  { name: "Storm",  adult: "🐲⚡", elder: "⚡🐉⚡", tint: "hue-rotate(60deg) saturate(1.3)", blurb: "Raised on love and affection — a dazzling Storm Dragon! ⚡" },
+  nature: { name: "Nature", adult: "🐲🌿", elder: "🌿🐉🌿", tint: "hue-rotate(90deg) saturate(1.3)", blurb: "Raised on hearty meals — a mighty Verdant Dragon! 🌿" },
+  shadow: { name: "Shadow", adult: "🐲☠️", elder: "☠️🐉☠️", tint: "grayscale(0.5) brightness(0.8)", blurb: "Raised through hardship — a brooding Shadow Dragon. ☠️" },
+};
+function determineType() {
+  const c = pet.care;
+  const scores = { fire: c.play, ice: c.sleepMin, storm: c.pet, nature: c.feed, shadow: c.neglect };
+  let bestKey = "storm", bestVal = -1;
+  for (const k in scores) if (scores[k] > bestVal) { bestVal = scores[k]; bestKey = k; }
+  return bestKey;
+}
 function lifeStage() {
   if (!pet.hatched) return { name: "Egg", emoji: "🥚" };
   if (pet.ageMin < 3)  return { name: "Baby",  emoji: "🐉" };
@@ -248,12 +305,24 @@ function lifeStage() {
   return { name: "Elder", emoji: t ? t.elder : "🐉✨", tint: t && t.tint };
 }
 
-function clamp(v) { return Math.max(0, Math.min(100, v)); }
+// ====================== Collection / Dex ======================
+function addToDex() {
+  const entry = { type: pet.type, name: pet.name, date: Date.now(), ageReached: Math.floor(pet.ageMin) };
+  dex.push(entry);
+  pet.dexId = dex.length - 1;
+  saveDex();
+}
+function updateDexAge() {
+  if (pet.dexId != null && dex[pet.dexId]) {
+    dex[pet.dexId].ageReached = Math.max(dex[pet.dexId].ageReached, Math.floor(pet.ageMin));
+    saveDex();
+  }
+}
 
-// ===== Time-based decay (also catches up after being away) =====
+// ====================== Time / decay ======================
+function clamp(v) { return Math.max(0, Math.min(100, v)); }
 function tick() {
   if (!pet.alive) return;
-
   const now = Date.now();
   const elapsedMin = (now - pet.lastTick) / 60000;
   pet.lastTick = now;
@@ -261,7 +330,6 @@ function tick() {
 
   pet.ageMin += elapsedMin;
 
-  // decay rates per minute
   if (pet.sleeping) {
     pet.energy = clamp(pet.energy + 12 * elapsedMin);
     pet.hunger = clamp(pet.hunger - 1.5 * elapsedMin);
@@ -273,12 +341,10 @@ function tick() {
     pet.energy = clamp(pet.energy - 2.5 * elapsedMin);
   }
 
-  // random poop over time
   if (!pet.sleeping && Math.random() < 0.15 * elapsedMin + (elapsedMin > 0 ? 0.02 : 0)) {
     pet.poops = Math.min(4, pet.poops + 1);
   }
 
-  // health suffers when needs are neglected
   let healthDrain = 0;
   if (pet.hunger <= 0) healthDrain += 5 * elapsedMin;
   if (pet.happy  <= 0) healthDrain += 3 * elapsedMin;
@@ -286,17 +352,17 @@ function tick() {
   if (healthDrain > 0) pet.health = clamp(pet.health - healthDrain);
   else if (pet.hunger > 50 && pet.happy > 50) pet.health = clamp(pet.health + 1 * elapsedMin);
 
-  // track neglect for the Shadow path
-  if (pet.hunger <= 5 || pet.happy <= 5 || pet.poops >= 3) {
-    pet.care.neglect += elapsedMin;
-  }
+  if (pet.hunger <= 5 || pet.happy <= 5 || pet.poops >= 3) pet.care.neglect += elapsedMin;
 
-  // Evolution! Lock in an elemental type once the dragon becomes an Adult
+  // Evolution
   if (pet.hatched && !pet.type && pet.ageMin >= 10) {
     pet.type = determineType();
-    const t = TYPES[pet.type];
-    setMessage("✨ EVOLUTION! " + t.blurb);
+    addToDex();
+    setMessage("✨ EVOLUTION! " + TYPES[pet.type].blurb);
+    SFX.evolve();
+    mood("✨");
   }
+  updateDexAge();
 
   if (pet.health <= 0) die();
   save();
@@ -304,96 +370,72 @@ function tick() {
 }
 
 function die() {
-  pet.alive = false;
-  pet.health = 0;
+  pet.alive = false; pet.health = 0;
+  updateDexAge();
   save();
+  SFX.death();
   const stage = lifeStage();
   document.getElementById("death-text").textContent =
     `${pet.name} lived to the ${stage.name} stage (age ${Math.floor(pet.ageMin)}). Take better care next time! 🥚`;
   document.getElementById("death-overlay").classList.add("show");
 }
 
-// ===== Actions =====
+// ====================== Actions ======================
 function setMessage(m) { document.getElementById("message").textContent = m; }
-
-function petDragon() {
-  if (!pet.hatched) { hatch(); return; }
-  if (!pet.alive || pet.sleeping) return;
-  pet.happy = clamp(pet.happy + 3);
-  pet.care.pet += 1;
-  setMessage("Your dragon loves the attention! 💜");
-  bounce();
-  save(); render();
-}
-
-function hatch() {
-  pet.hatched = true;
-  pet.born = Date.now();
-  pet.lastTick = Date.now();
-  setMessage("🎉 Your dragon hatched! Take good care of it.");
-  bounce();
-  save(); render();
-}
-
+function guard() { return pet.hatched && pet.alive && !pet.sleeping; }
 function bounce() {
   const d = document.getElementById("dragon");
   d.style.transform = "scale(1.25)";
   setTimeout(() => { d.style.transform = ""; }, 180);
 }
 
-function guard() { return pet.hatched && pet.alive && !pet.sleeping; }
-
+function petDragon() {
+  if (!pet.hatched) { hatch(); return; }
+  if (!pet.alive || pet.sleeping) return;
+  pet.happy = clamp(pet.happy + 3); pet.care.pet += 1;
+  setMessage("Your dragon loves the attention! 💜");
+  SFX.pet(); mood("💜"); bounce(); save(); render();
+}
+function hatch() {
+  pet.hatched = true; pet.born = Date.now(); pet.lastTick = Date.now();
+  setMessage("🎉 Your dragon hatched! Take good care of it.");
+  SFX.evolve(); mood("🎉"); bounce(); save(); render();
+}
 function feed() {
   if (!pet.hatched) { setMessage("Hatch your egg first! Tap it."); return; }
   if (!guard()) { setMessage("Can't do that right now 😴"); return; }
-  if (pet.hunger >= 100) { setMessage("Your dragon is too full! 🤢"); return; }
-  pet.hunger = clamp(pet.hunger + 25);
-  pet.energy = clamp(pet.energy + 5);
-  pet.care.feed += 1;
+  if (pet.hunger >= 100) { setMessage("Your dragon is too full! 🤢"); mood("🤢"); return; }
+  pet.hunger = clamp(pet.hunger + 25); pet.energy = clamp(pet.energy + 5); pet.care.feed += 1;
   if (Math.random() < 0.4) pet.poops = Math.min(4, pet.poops + 1);
-  setMessage("Nom nom! 🍖 Yummy.");
-  bounce(); save(); render();
+  setMessage("Nom nom! 🍖 Yummy."); SFX.feed(); mood("😋"); bounce(); save(); render();
 }
-
 function playWith() {
   if (!guard()) { setMessage("Hatch or wake your dragon first!"); return; }
-  if (pet.energy < 15) { setMessage("Too tired to play 😪 — let it sleep."); return; }
-  pet.happy = clamp(pet.happy + 25);
-  pet.energy = clamp(pet.energy - 15);
-  pet.hunger = clamp(pet.hunger - 8);
-  pet.care.play += 1;
-  setMessage("Wheee! 🎮 So much fun!");
-  bounce(); save(); render();
+  if (pet.energy < 15) { setMessage("Too tired to play 😪 — let it sleep."); mood("😪"); return; }
+  pet.happy = clamp(pet.happy + 25); pet.energy = clamp(pet.energy - 15);
+  pet.hunger = clamp(pet.hunger - 8); pet.care.play += 1;
+  setMessage("Wheee! 🎮 So much fun!"); SFX.play(); mood("😄"); bounce(); save(); render();
 }
-
 function toggleSleep() {
   if (!pet.hatched || !pet.alive) return;
   pet.sleeping = !pet.sleeping;
   setMessage(pet.sleeping ? "Shhh… your dragon is sleeping 😴" : "Your dragon woke up! ☀️");
+  if (pet.sleeping) SFX.sleep();
   save(); render();
 }
-
 function clean() {
   if (!pet.hatched || !pet.alive) return;
   if (pet.poops === 0) { setMessage("Already squeaky clean! ✨"); return; }
-  pet.poops = 0;
-  pet.happy = clamp(pet.happy + 5);
-  setMessage("All clean now! 🧹✨");
-  save(); render();
+  pet.poops = 0; pet.happy = clamp(pet.happy + 5);
+  setMessage("All clean now! 🧹✨"); SFX.clean(); mood("✨"); save(); render();
 }
-
 function heal() {
   if (!pet.hatched || !pet.alive) return;
-  if (pet.health >= 100) { setMessage("Your dragon is perfectly healthy! ❤️"); return; }
-  pet.health = clamp(pet.health + 30);
-  pet.care.heal += 1;
-  setMessage("Took its medicine 💊 Feeling better!");
-  bounce(); save(); render();
+  if (pet.health >= 100) { setMessage("Your dragon is perfectly healthy! ❤️"); mood("❤️"); return; }
+  pet.health = clamp(pet.health + 30); pet.care.heal += 1;
+  setMessage("Took its medicine 💊 Feeling better!"); SFX.heal(); mood("💊"); bounce(); save(); render();
 }
-
-function confirmReset() {
-  if (confirm("Reset and start over with a new egg?")) restart();
-}
+function confirmReset() { if (confirm("Reset and start over with a new egg? (Coins & collection are kept)")) restart(); }
 function restart() {
   pet = freshPet({ born: Date.now(), lastTick: Date.now() });
   document.getElementById("death-overlay").classList.remove("show");
@@ -401,8 +443,139 @@ function restart() {
   save(); render();
 }
 
-// ===== Render =====
+// ====================== Shop ======================
+const SHOP = [
+  { id:"apple",   emoji:"🍎", name:"Apple",     cost:10, desc:"+15 hunger, healthy", apply:p=>{p.hunger=clamp(p.hunger+15);} },
+  { id:"steak",   emoji:"🥩", name:"Big Steak", cost:20, desc:"+35 hunger, +5 health", apply:p=>{p.hunger=clamp(p.hunger+35);p.health=clamp(p.health+5);} },
+  { id:"cake",    emoji:"🍰", name:"Cake",      cost:15, desc:"+30 happy, -5 health", apply:p=>{p.happy=clamp(p.happy+30);p.health=clamp(p.health-5);} },
+  { id:"toy",     emoji:"🧸", name:"Plush Toy", cost:25, desc:"+35 happy", apply:p=>{p.happy=clamp(p.happy+35);} },
+  { id:"coffee",  emoji:"☕", name:"Dragon Brew", cost:20, desc:"+40 energy", apply:p=>{p.energy=clamp(p.energy+40);} },
+  { id:"potion",  emoji:"🧪", name:"Health Potion", cost:30, desc:"+50 health", apply:p=>{p.health=clamp(p.health+50);} },
+  { id:"vitamin", emoji:"⭐", name:"Super Vitamin", cost:60, desc:"+20 to ALL stats", apply:p=>{p.hunger=clamp(p.hunger+20);p.happy=clamp(p.happy+20);p.energy=clamp(p.energy+20);p.health=clamp(p.health+20);} },
+];
+function openShop() {
+  SFX.click();
+  const list = document.getElementById("shop-list");
+  list.innerHTML = SHOP.map(item => `
+    <div class="shop-item">
+      <span class="emoji">${item.emoji}</span>
+      <span class="info"><b>${item.name}</b><small>${item.desc}</small></span>
+      <button ${coins < item.cost ? "disabled" : ""} onclick="buyItem('${item.id}')">🪙 ${item.cost}</button>
+    </div>`).join("");
+  document.getElementById("shop-modal").classList.add("show");
+}
+function closeShop() { document.getElementById("shop-modal").classList.remove("show"); }
+function buyItem(id) {
+  const item = SHOP.find(i => i.id === id);
+  if (!item || coins < item.cost) return;
+  if (!pet.hatched || !pet.alive) { setMessage("You need a living dragon to use items!"); return; }
+  coins -= item.cost; saveCoins();
+  item.apply(pet); save();
+  SFX.coin(); mood(item.emoji);
+  setMessage(`Used ${item.name}! ${item.emoji}`);
+  render(); openShop(); // refresh affordability
+}
+
+// ====================== Mini-game: Gem Catch ======================
+let mg = null;
+function openMiniGame() {
+  if (!pet.hatched || !pet.alive) { setMessage("Hatch your dragon first!"); return; }
+  SFX.click();
+  document.getElementById("mg-intro").style.display = "block";
+  document.getElementById("mg-score").textContent = "0";
+  document.getElementById("mg-time").textContent = "20";
+  document.getElementById("minigame-overlay").classList.add("show");
+}
+function closeMiniGame() {
+  stopGemGame();
+  document.getElementById("minigame-overlay").classList.remove("show");
+}
+function startGemGame() {
+  document.getElementById("mg-intro").style.display = "none";
+  const stage = document.getElementById("stage");
+  mg = { score: 0, time: 20, gems: [], spawn: null, move: null, clock: null, w: stage.clientWidth || 300, h: stage.clientHeight || 180 };
+  document.getElementById("mg-score").textContent = "0";
+  document.getElementById("mg-time").textContent = "20";
+
+  const GEMS = ["💎","💰","🪙","💠","🔶"];
+  mg.spawn = setInterval(() => {
+    const g = document.createElement("div");
+    g.className = "gem";
+    g.textContent = GEMS[Math.floor(Math.random() * GEMS.length)];
+    g.style.left = (10 + Math.random() * (mg.w - 50)) + "px";
+    g.style.top = "-30px";
+    g._y = -30;
+    g.onclick = () => {
+      mg.score++;
+      document.getElementById("mg-score").textContent = mg.score;
+      SFX.coin();
+      g.remove();
+      mg.gems = mg.gems.filter(x => x !== g);
+    };
+    document.getElementById("minigame-overlay").appendChild(g);
+    mg.gems.push(g);
+  }, 650);
+
+  mg.move = setInterval(() => {
+    for (const g of mg.gems.slice()) {
+      g._y += 7;
+      g.style.top = g._y + "px";
+      if (g._y > mg.h) { g.remove(); mg.gems = mg.gems.filter(x => x !== g); }
+    }
+  }, 45);
+
+  mg.clock = setInterval(() => {
+    mg.time--;
+    document.getElementById("mg-time").textContent = mg.time;
+    if (mg.time <= 0) endGemGame();
+  }, 1000);
+}
+function stopGemGame() {
+  if (!mg) return;
+  clearInterval(mg.spawn); clearInterval(mg.move); clearInterval(mg.clock);
+  mg.gems.forEach(g => g.remove());
+  mg = null;
+}
+function endGemGame() {
+  const earned = mg ? mg.score : 0;
+  stopGemGame();
+  coins += earned; saveCoins();
+  // a little happiness boost from playing
+  if (pet.alive) { pet.happy = clamp(pet.happy + 10); pet.care.play += 1; save(); }
+  document.getElementById("minigame-overlay").classList.remove("show");
+  setMessage(`💎 Game over! You earned ${earned} 🪙 coins!`);
+  mood("🪙"); render();
+}
+
+// ====================== Gallery ======================
+function openGallery() {
+  SFX.click();
+  const uniqueTypes = new Set(dex.map(d => d.type).filter(Boolean));
+  document.getElementById("dex-progress").textContent =
+    `Unique types collected: ${uniqueTypes.size} / ${Object.keys(TYPES).length}`;
+  const list = document.getElementById("dex-list");
+  if (dex.length === 0) {
+    list.innerHTML = `<div class="dex-empty">No dragons yet!<br>Raise a dragon to Adult to record it here. 🥚</div>`;
+  } else {
+    list.innerHTML = dex.slice().reverse().map(d => {
+      const t = TYPES[d.type];
+      const date = new Date(d.date).toLocaleDateString();
+      return `<div class="dex-item">
+        <span class="emoji">${t ? t.adult : "🐲"}</span>
+        <span class="info"><b>${d.name} — ${t ? t.name : "?"} Dragon</b>
+          <small>Reached age ${d.ageReached} · ${date}</small></span>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("gallery-modal").classList.add("show");
+}
+function closeGallery() { document.getElementById("gallery-modal").classList.remove("show"); }
+
+// ====================== Render ======================
 function render() {
+  document.getElementById("coin-count").textContent = coins;
+  document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
+
   const stage = lifeStage();
   document.getElementById("pet-name").textContent = pet.name;
   const typeName = pet.type ? TYPES[pet.type].name + " " : "";
@@ -413,18 +586,19 @@ function render() {
   d.textContent = pet.hatched ? stage.emoji : "🥚";
   d.classList.toggle("sleeping", pet.sleeping);
   d.classList.toggle("sick", pet.hatched && pet.health < 30 && pet.alive);
-  // elemental color tint once evolved (kept off while sick/sleeping styling applies its own filter)
-  d.style.filter = (stage.tint && !pet.sleeping && !(pet.health < 30)) ? stage.tint : "";
+  d.style.filter = (stage.tint && !pet.sleeping && !(pet.hatched && pet.health < 30)) ? stage.tint : "";
+
+  // day/night by real clock
+  const hr = new Date().getHours();
+  document.getElementById("stage").classList.toggle("night", hr < 6 || hr >= 19);
 
   document.getElementById("zzz").style.display = pet.sleeping ? "block" : "none";
 
-  // poops
   const area = document.getElementById("poop-area");
   area.innerHTML = "";
   for (let i = 0; i < pet.poops; i++) {
     const p = document.createElement("div");
-    p.className = "poop";
-    p.textContent = "💩";
+    p.className = "poop"; p.textContent = "💩";
     p.style.left = (20 + i * 45) + "px";
     area.appendChild(p);
   }
@@ -434,19 +608,17 @@ function render() {
   document.getElementById("bar-energy").style.width = pet.energy + "%";
   document.getElementById("bar-health").style.width = pet.health + "%";
 
-  // disable buttons appropriately
   const dead = !pet.alive;
-  document.getElementById("btn-feed").disabled  = dead;
-  document.getElementById("btn-play").disabled  = dead;
+  ["btn-feed","btn-play","btn-clean","btn-heal","btn-game","btn-shop"].forEach(id =>
+    document.getElementById(id).disabled = dead);
   document.getElementById("btn-sleep").disabled = dead || !pet.hatched;
-  document.getElementById("btn-clean").disabled = dead;
-  document.getElementById("btn-heal").disabled  = dead;
 }
 
-// ===== Boot =====
+// ====================== Boot ======================
+if (muted) document.getElementById("mute-btn").textContent = "🔇";
 tick();
 render();
-setInterval(tick, 3000); // update every 3 seconds
+setInterval(tick, 3000);
 </script>
 </body>
 </html>
