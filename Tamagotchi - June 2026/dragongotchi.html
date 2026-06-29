@@ -130,7 +130,7 @@
 
   <div class="screen">
     <div class="name-age">
-      <span id="pet-name">Drako</span>
+      <span id="pet-name" onclick="renameDragon()" style="cursor:pointer;" title="Tap to rename">Drako ✏️</span>
       <span class="stage-badge" id="pet-stage">Egg</span>
       <span id="pet-age">Age: 0</span>
     </div>
@@ -147,7 +147,7 @@
         <button class="btn" onclick="restart()">🥚 Hatch a New Dragon</button>
       </div>
 
-      <!-- mini-game overlay -->
+      <!-- mini-game overlay (Gem Catch lives in the stage) -->
       <div class="overlay" id="minigame-overlay" style="background:rgba(180,225,255,0.95);">
         <div id="minigame-hud"><span>Score: <span id="mg-score">0</span></span><span>⏱ <span id="mg-time">20</span></span></div>
         <div id="mg-intro">
@@ -175,9 +175,10 @@
     <button class="btn" id="btn-sleep" onclick="toggleSleep()"><span class="ico">😴</span>Sleep</button>
     <button class="btn" id="btn-clean" onclick="clean()"><span class="ico">🧹</span>Clean</button>
     <button class="btn" id="btn-heal"  onclick="heal()"><span class="ico">💊</span>Heal</button>
-    <button class="btn" id="btn-game"  onclick="openMiniGame()"><span class="ico">💎</span>Mini-Game</button>
+    <button class="btn" id="btn-game"  onclick="openChooser()"><span class="ico">🎮</span>Mini-Games</button>
     <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
     <button class="btn" id="btn-dex"   onclick="openGallery()"><span class="ico">📖</span>Gallery</button>
+    <button class="btn" id="btn-awards" onclick="openAwards()"><span class="ico">🏆</span>Awards</button>
     <button class="btn" id="btn-reset" onclick="confirmReset()"><span class="ico">🔄</span>Reset</button>
   </div>
 </div>
@@ -202,20 +203,64 @@
   </div>
 </div>
 
+<!-- Mini-game chooser modal -->
+<div class="modal-bg" id="chooser-modal">
+  <div class="modal">
+    <h2>🎮 Mini-Games</h2>
+    <div class="sub">Play to earn 🪙 coins!</div>
+    <div class="shop-item" onclick="closeChooser(); openMiniGame();" style="cursor:pointer;">
+      <span class="emoji">💎</span>
+      <span class="info"><b>Gem Catch</b><small>Tap falling gems for 20 seconds</small></span>
+    </div>
+    <div class="shop-item" onclick="closeChooser(); openMemoryGame();" style="cursor:pointer;">
+      <span class="emoji">🃏</span>
+      <span class="info"><b>Memory Match</b><small>Match all the pairs in as few moves as possible</small></span>
+    </div>
+    <button class="close" onclick="closeChooser()">Close</button>
+  </div>
+</div>
+
+<!-- Memory match modal -->
+<div class="modal-bg" id="memory-modal">
+  <div class="modal">
+    <h2>🃏 Memory Match</h2>
+    <div class="sub" id="memory-sub">Match all 6 pairs! Fewer moves = more coins.</div>
+    <div id="memory-grid" style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:0.75rem;"></div>
+    <button class="close" onclick="closeMemoryGame()">Close</button>
+  </div>
+</div>
+
+<!-- Achievements modal -->
+<div class="modal-bg" id="awards-modal">
+  <div class="modal">
+    <h2>🏆 Achievements</h2>
+    <div class="dex-progress" id="awards-progress"></div>
+    <div id="awards-list"></div>
+    <button class="close" onclick="closeAwards()">Close</button>
+  </div>
+</div>
+
 <script>
 // ====================== Persistent globals ======================
 let coins = parseInt(localStorage.getItem("dragongotchiCoins") || "0");
+let coinsEarned = parseInt(localStorage.getItem("dragongotchiCoinsEarned") || "0"); // lifetime
 let dex = JSON.parse(localStorage.getItem("dragongotchiDex") || "[]");
+let unlocked = JSON.parse(localStorage.getItem("dragongotchiAwards") || "[]"); // achievement ids
 let muted = localStorage.getItem("dragongotchiMuted") === "1";
 function saveCoins() { localStorage.setItem("dragongotchiCoins", coins); }
+function saveEarned() { localStorage.setItem("dragongotchiCoinsEarned", coinsEarned); }
 function saveDex() { localStorage.setItem("dragongotchiDex", JSON.stringify(dex)); }
+function saveAwards() { localStorage.setItem("dragongotchiAwards", JSON.stringify(unlocked)); }
+
+// give coins and credit lifetime total (used by mini-games)
+function earnCoins(n) { coins += n; coinsEarned += n; saveCoins(); saveEarned(); }
 
 // ====================== Pet model ======================
 const DEFAULT = {
   name: "Drako", born: Date.now(), lastTick: Date.now(),
   hunger: 80, happy: 80, energy: 90, health: 100,
   sleeping: false, poops: 0, alive: true, ageMin: 0, hatched: false,
-  type: null, dexId: null,
+  type: null, dexId: null, perfectCare: true,
   care: { feed: 0, play: 0, sleepMin: 0, heal: 0, pet: 0, neglect: 0 },
 };
 let pet = load();
@@ -288,8 +333,13 @@ const TYPES = {
   storm:  { name: "Storm",  adult: "🐲⚡", elder: "⚡🐉⚡", tint: "hue-rotate(60deg) saturate(1.3)", blurb: "Raised on love and affection — a dazzling Storm Dragon! ⚡" },
   nature: { name: "Nature", adult: "🐲🌿", elder: "🌿🐉🌿", tint: "hue-rotate(90deg) saturate(1.3)", blurb: "Raised on hearty meals — a mighty Verdant Dragon! 🌿" },
   shadow: { name: "Shadow", adult: "🐲☠️", elder: "☠️🐉☠️", tint: "grayscale(0.5) brightness(0.8)", blurb: "Raised through hardship — a brooding Shadow Dragon. ☠️" },
+  rainbow:{ name: "Rainbow", adult: "🌈🐲", elder: "🌈🐉🌈", tint: "saturate(1.6) hue-rotate(0deg)", secret: true, blurb: "PERFECT CARE! You kept every stat strong — the legendary Rainbow Dragon! 🌈" },
 };
+// elemental types that count toward the "collect them all" goal (rainbow is a bonus)
+const ELEMENTAL_TYPES = ["fire","ice","storm","nature","shadow"];
 function determineType() {
+  // Secret evolution: if you never let any stat fall too low, you earn the Rainbow Dragon
+  if (pet.perfectCare) return "rainbow";
   const c = pet.care;
   const scores = { fire: c.play, ice: c.sleepMin, storm: c.pet, nature: c.feed, shadow: c.neglect };
   let bestKey = "storm", bestVal = -1;
@@ -317,6 +367,40 @@ function updateDexAge() {
     dex[pet.dexId].ageReached = Math.max(dex[pet.dexId].ageReached, Math.floor(pet.ageMin));
     saveDex();
   }
+}
+
+// ====================== Achievements ======================
+const AWARDS = [
+  { id: "hatch",     icon: "🥚", name: "First Steps",     desc: "Hatch your first dragon" },
+  { id: "evolve",    icon: "✨", name: "All Grown Up",    desc: "Evolve a dragon to Adult" },
+  { id: "elder",     icon: "🧓", name: "Wise One",        desc: "Raise a dragon to Elder stage" },
+  { id: "collector", icon: "📚", name: "Gotta Raise 'Em All", desc: "Collect all 5 elemental types" },
+  { id: "rainbow",   icon: "🌈", name: "Legendary",       desc: "Unlock the secret Rainbow Dragon" },
+  { id: "rich",      icon: "💰", name: "High Roller",      desc: "Earn 500 coins in total" },
+  { id: "gem_pro",   icon: "💎", name: "Gem Master",       desc: "Score 15+ in one Gem Catch game" },
+  { id: "memory_ace",icon: "🃏", name: "Sharp Memory",     desc: "Win Memory Match in 8 moves or fewer" },
+];
+function unlock(id) {
+  if (unlocked.includes(id)) return;
+  unlocked.push(id);
+  saveAwards();
+  const a = AWARDS.find(x => x.id === id);
+  if (a) { toast(`🏆 Achievement: ${a.name}!`); SFX.coin(); }
+}
+function checkCollector() {
+  const have = new Set(dex.map(d => d.type));
+  if (ELEMENTAL_TYPES.every(t => have.has(t))) unlock("collector");
+}
+function checkRich() { if (coinsEarned >= 500) unlock("rich"); }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById("message");
+  el.textContent = msg;
+  // briefly highlight, then let normal messages resume
+  el.style.color = "#b8860b";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.color = ""; }, 2500);
 }
 
 // ====================== Time / decay ======================
@@ -354,14 +438,25 @@ function tick() {
 
   if (pet.hunger <= 5 || pet.happy <= 5 || pet.poops >= 3) pet.care.neglect += elapsedMin;
 
+  // Perfect-care tracking for the secret Rainbow dragon: any stat dipping below 40
+  // (before evolving) breaks the streak.
+  if (!pet.type && (pet.hunger < 40 || pet.happy < 40 || pet.energy < 40 || pet.health < 40)) {
+    pet.perfectCare = false;
+  }
+
   // Evolution
   if (pet.hatched && !pet.type && pet.ageMin >= 10) {
     pet.type = determineType();
     addToDex();
     setMessage("✨ EVOLUTION! " + TYPES[pet.type].blurb);
     SFX.evolve();
-    mood("✨");
+    mood(pet.type === "rainbow" ? "🌈" : "✨");
+    unlock("evolve");
+    if (pet.type === "rainbow") unlock("rainbow");
+    checkCollector();
   }
+  // Elder achievement
+  if (pet.type && pet.ageMin >= 25) unlock("elder");
   updateDexAge();
 
   if (pet.health <= 0) die();
@@ -399,7 +494,17 @@ function petDragon() {
 function hatch() {
   pet.hatched = true; pet.born = Date.now(); pet.lastTick = Date.now();
   setMessage("🎉 Your dragon hatched! Take good care of it.");
-  SFX.evolve(); mood("🎉"); bounce(); save(); render();
+  SFX.evolve(); mood("🎉"); bounce(); unlock("hatch"); save(); render();
+}
+function renameDragon() {
+  if (!pet.alive) return;
+  const name = (prompt("Name your dragon:", pet.name) || "").trim();
+  if (!name) return;
+  pet.name = name.slice(0, 16);
+  // keep the collection entry in sync if this dragon is already recorded
+  if (pet.dexId != null && dex[pet.dexId]) { dex[pet.dexId].name = pet.name; saveDex(); }
+  setMessage(`Renamed to ${pet.name}! 💜`);
+  save(); render();
 }
 function feed() {
   if (!pet.hatched) { setMessage("Hatch your egg first! Tap it."); return; }
@@ -537,22 +642,118 @@ function stopGemGame() {
   mg = null;
 }
 function endGemGame() {
-  const earned = mg ? mg.score : 0;
+  const score = mg ? mg.score : 0;
   stopGemGame();
-  coins += earned; saveCoins();
+  earnCoins(score);
+  if (score >= 15) unlock("gem_pro");
+  checkRich();
   // a little happiness boost from playing
   if (pet.alive) { pet.happy = clamp(pet.happy + 10); pet.care.play += 1; save(); }
   document.getElementById("minigame-overlay").classList.remove("show");
-  setMessage(`💎 Game over! You earned ${earned} 🪙 coins!`);
+  setMessage(`💎 Game over! You earned ${score} 🪙 coins!`);
   mood("🪙"); render();
 }
+
+// ====================== Mini-game chooser ======================
+function openChooser() {
+  if (!pet.hatched || !pet.alive) { setMessage("Hatch your dragon first!"); return; }
+  SFX.click();
+  document.getElementById("chooser-modal").classList.add("show");
+}
+function closeChooser() { document.getElementById("chooser-modal").classList.remove("show"); }
+
+// ====================== Mini-game: Memory Match ======================
+let mem = null;
+function openMemoryGame() {
+  if (!pet.hatched || !pet.alive) { setMessage("Hatch your dragon first!"); return; }
+  SFX.click();
+  const faces = ["🔥","❄️","⚡","🌿","☠️","🌈"]; // 6 pairs
+  let cards = faces.concat(faces);
+  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  mem = { cards, flipped: [], matched: 0, moves: 0, lock: false };
+  document.getElementById("memory-sub").textContent = "Match all 6 pairs! Fewer moves = more coins. Moves: 0";
+  renderMemory();
+  document.getElementById("memory-modal").classList.add("show");
+}
+function renderMemory() {
+  const grid = document.getElementById("memory-grid");
+  grid.innerHTML = mem.cards.map((face, i) => {
+    const isUp = mem.flipped.includes(i) || mem.cards[i] === null;
+    const done = mem.cards[i] === null;
+    const bg = done ? "#2ecc7133" : (isUp ? "#cfe8c0" : "#3a2a1a");
+    const content = done ? "✅" : (isUp ? face : "❓");
+    return `<button onclick="flipCard(${i})" ${done ? "disabled" : ""}
+      style="aspect-ratio:1; font-size:1.6rem; border:none; border-radius:10px;
+      background:${bg}; cursor:${done?"default":"pointer"};">${content}</button>`;
+  }).join("");
+}
+function flipCard(i) {
+  if (!mem || mem.lock) return;
+  if (mem.flipped.includes(i) || mem.cards[i] === null) return;
+  SFX.click();
+  mem.flipped.push(i);
+  renderMemory();
+  if (mem.flipped.length === 2) {
+    mem.moves++;
+    document.getElementById("memory-sub").textContent = `Match all 6 pairs! Moves: ${mem.moves}`;
+    const [a, b] = mem.flipped;
+    if (mem.cards[a] === mem.cards[b]) {
+      // match!
+      SFX.coin();
+      setTimeout(() => {
+        mem.cards[a] = null; mem.cards[b] = null;
+        mem.flipped = []; mem.matched++;
+        renderMemory();
+        if (mem.matched === 6) endMemoryGame();
+      }, 400);
+    } else {
+      mem.lock = true;
+      setTimeout(() => { mem.flipped = []; mem.lock = false; renderMemory(); }, 800);
+    }
+  }
+}
+function endMemoryGame() {
+  const moves = mem.moves;
+  // reward: best play (6 moves) = 30 coins, scaling down, min 5
+  const reward = Math.max(5, 30 - (moves - 6) * 2);
+  earnCoins(reward);
+  if (moves <= 8) unlock("memory_ace");
+  checkRich();
+  if (pet.alive) { pet.happy = clamp(pet.happy + 12); pet.care.play += 1; save(); }
+  document.getElementById("memory-sub").textContent = `🎉 Solved in ${moves} moves! Earned ${reward} 🪙`;
+  mem = null;
+  setMessage(`🃏 Memory Match solved! +${reward} 🪙`);
+  mood("🪙"); render();
+}
+function closeMemoryGame() {
+  mem = null;
+  document.getElementById("memory-modal").classList.remove("show");
+}
+
+// ====================== Achievements modal ======================
+function openAwards() {
+  SFX.click();
+  document.getElementById("awards-progress").textContent =
+    `Unlocked: ${unlocked.length} / ${AWARDS.length}`;
+  document.getElementById("awards-list").innerHTML = AWARDS.map(a => {
+    const have = unlocked.includes(a.id);
+    return `<div class="dex-item" style="${have ? "" : "opacity:0.45;"}">
+      <span class="emoji">${have ? a.icon : "🔒"}</span>
+      <span class="info"><b>${a.name}</b><small>${a.desc}</small></span>
+    </div>`;
+  }).join("");
+  document.getElementById("awards-modal").classList.add("show");
+}
+function closeAwards() { document.getElementById("awards-modal").classList.remove("show"); }
 
 // ====================== Gallery ======================
 function openGallery() {
   SFX.click();
   const uniqueTypes = new Set(dex.map(d => d.type).filter(Boolean));
+  const elementCount = ELEMENTAL_TYPES.filter(t => uniqueTypes.has(t)).length;
+  const hasRainbow = uniqueTypes.has("rainbow");
   document.getElementById("dex-progress").textContent =
-    `Unique types collected: ${uniqueTypes.size} / ${Object.keys(TYPES).length}`;
+    `Elemental types: ${elementCount} / 5${hasRainbow ? "  +  🌈 Rainbow!" : ""}`;
   const list = document.getElementById("dex-list");
   if (dex.length === 0) {
     list.innerHTML = `<div class="dex-empty">No dragons yet!<br>Raise a dragon to Adult to record it here. 🥚</div>`;
@@ -577,7 +778,7 @@ function render() {
   document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
 
   const stage = lifeStage();
-  document.getElementById("pet-name").textContent = pet.name;
+  document.getElementById("pet-name").textContent = pet.name + " ✏️";
   const typeName = pet.type ? TYPES[pet.type].name + " " : "";
   document.getElementById("pet-stage").textContent = typeName + stage.name;
   document.getElementById("pet-age").textContent = "Age: " + Math.floor(pet.ageMin);
