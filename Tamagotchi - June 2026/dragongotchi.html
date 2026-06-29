@@ -118,6 +118,16 @@
   .modal .close { width: 100%; margin-top: 0.5rem; background: #555; color: #fff; border: none; border-radius: 12px; padding: 0.6rem; font-weight: 700; cursor: pointer; }
   .dex-empty { text-align: center; color: #887; padding: 1rem; }
   .dex-progress { text-align: center; color: #ffd700; font-weight: 700; margin-bottom: 0.75rem; }
+
+  /* battle */
+  .battle-side { background: #2a1f4a; border-radius: 12px; padding: 0.6rem 0.8rem; }
+  .battle-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+  .b-emoji { font-size: 2rem; }
+  .b-info { flex: 1; } .b-info b { display: block; } .b-info small { color: #bba; font-size: 0.72rem; }
+  .hpbar { height: 14px; background: #00000055; border-radius: 7px; overflow: hidden; }
+  .hpbar > div { height: 100%; background: #ff5d8f; border-radius: 7px; transition: width 0.3s; }
+  .b-act { background: #ff7b54; color: #fff; border: none; border-radius: 10px; padding: 0.55rem 0.9rem; font-weight: 700; cursor: pointer; }
+  .b-act:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -168,6 +178,7 @@
       <div class="stat"><span class="label">⚡ Energy</span><div class="bar"><div class="fill-energy" id="bar-energy"></div></div></div>
       <div class="stat"><span class="label">❤️ Health</span><div class="bar"><div class="fill-health" id="bar-health"></div></div></div>
     </div>
+    <div id="genes-line" style="margin-top:0.5rem; font-size:0.72rem; color:#2a3a1a; font-weight:700; text-align:center;"></div>
   </div>
 
   <div class="message" id="message">Tap your egg to hatch it!</div>
@@ -179,6 +190,7 @@
     <button class="btn" id="btn-clean" onclick="clean()"><span class="ico">🧹</span>Clean</button>
     <button class="btn" id="btn-heal"  onclick="heal()"><span class="ico">💊</span>Heal</button>
     <button class="btn" id="btn-game"  onclick="openChooser()"><span class="ico">🎮</span>Mini-Games</button>
+    <button class="btn" id="btn-battle" onclick="openBattle()"><span class="ico">⚔️</span>Battle</button>
     <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
     <button class="btn" id="btn-dex"   onclick="openGallery()"><span class="ico">📖</span>Gallery</button>
     <button class="btn" id="btn-awards" onclick="openAwards()"><span class="ico">🏆</span>Awards</button>
@@ -257,6 +269,27 @@
   </div>
 </div>
 
+<!-- Battle modal -->
+<div class="modal-bg" id="battle-modal">
+  <div class="modal">
+    <h2>⚔️ Dragon Battle</h2>
+    <div class="battle-side">
+      <div class="battle-row"><span class="b-emoji" id="foe-emoji">🐲</span>
+        <span class="b-info"><b id="foe-name">Wild Dragon</b><small id="foe-stats"></small></span></div>
+      <div class="hpbar"><div id="foe-hp"></div></div>
+    </div>
+    <div style="text-align:center; font-size:1.3rem; margin:0.4rem 0; color:#ff7b54;">⚔️ VS ⚔️</div>
+    <div class="battle-side">
+      <div class="battle-row"><span class="b-emoji" id="you-emoji">🐲</span>
+        <span class="b-info"><b id="you-name">You</b><small id="you-stats"></small></span></div>
+      <div class="hpbar"><div id="you-hp" style="background:#4ecdc4;"></div></div>
+    </div>
+    <div id="battle-log" style="text-align:center; min-height:2.4rem; margin:0.75rem 0; font-size:0.85rem; color:#ffd;"></div>
+    <div id="battle-actions" style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;"></div>
+    <button class="close" id="battle-close" onclick="closeBattle()" style="margin-top:0.75rem;">Close</button>
+  </div>
+</div>
+
 <script>
 // ====================== Persistent globals ======================
 let coins = parseInt(localStorage.getItem("dragongotchiCoins") || "0");
@@ -264,6 +297,7 @@ let coinsEarned = parseInt(localStorage.getItem("dragongotchiCoinsEarned") || "0
 let dex = JSON.parse(localStorage.getItem("dragongotchiDex") || "[]");
 let unlocked = JSON.parse(localStorage.getItem("dragongotchiAwards") || "[]"); // achievement ids
 let decorOwned = JSON.parse(localStorage.getItem("dragongotchiDecor") || "[]"); // owned decoration ids
+let battleWins = parseInt(localStorage.getItem("dragongotchiBattleWins") || "0");
 let muted = localStorage.getItem("dragongotchiMuted") === "1";
 function saveCoins() { localStorage.setItem("dragongotchiCoins", coins); }
 function saveEarned() { localStorage.setItem("dragongotchiCoinsEarned", coinsEarned); }
@@ -274,18 +308,43 @@ function saveDecor() { localStorage.setItem("dragongotchiDecor", JSON.stringify(
 // give coins and credit lifetime total (used by mini-games)
 function earnCoins(n) { coins += n; coinsEarned += n; saveCoins(); saveEarned(); }
 
+// ====================== Genetics ======================
+function rnd(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
+// every dragon carries four battle genes; rarity is derived from them
+function randomGenes() { return { str: rnd(5,12), def: rnd(5,12), spd: rnd(5,12), hp: rnd(22,38) }; }
+function geneScore(g) { return g.str + g.def + g.spd + Math.round(g.hp / 4); }
+function rarityStars(g) {
+  const s = geneScore(g);
+  if (s >= 46) return 5;
+  if (s >= 39) return 4;
+  if (s >= 32) return 3;
+  if (s >= 25) return 2;
+  return 1;
+}
+// child genes = average of parents, with small random drift and a chance of a lucky mutation
+function breedGenes(g1, g2) {
+  const mix = (a, b) => {
+    let v = Math.round((a + b) / 2) + rnd(-1, 1);
+    if (Math.random() < 0.15) v += rnd(2, 5); // lucky mutation
+    return Math.max(1, v);
+  };
+  return { str: mix(g1.str, g2.str), def: mix(g1.def, g2.def), spd: mix(g1.spd, g2.spd), hp: mix(g1.hp, g2.hp) };
+}
+
 // ====================== Pet model ======================
 const DEFAULT = {
   name: "Drako", born: Date.now(), lastTick: Date.now(),
   hunger: 80, happy: 80, energy: 90, health: 100,
   sleeping: false, poops: 0, alive: true, ageMin: 0, hatched: false,
-  type: null, dexId: null, perfectCare: true, heritage: null,
+  type: null, dexId: null, perfectCare: true, heritage: null, genes: null,
   care: { feed: 0, play: 0, sleepMin: 0, heal: 0, pet: 0, neglect: 0 },
 };
 let pet = load();
 
 function freshPet(overrides) {
-  return Object.assign(JSON.parse(JSON.stringify(DEFAULT)), overrides || {});
+  const p = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), overrides || {});
+  if (!p.genes) p.genes = randomGenes();   // wild dragons get random genes
+  return p;
 }
 function load() {
   const saved = localStorage.getItem("dragongotchi");
@@ -380,7 +439,7 @@ function lifeStage() {
 
 // ====================== Collection / Dex ======================
 function addToDex() {
-  const entry = { type: pet.type, name: pet.name, date: Date.now(), ageReached: Math.floor(pet.ageMin) };
+  const entry = { type: pet.type, name: pet.name, date: Date.now(), ageReached: Math.floor(pet.ageMin), genes: pet.genes };
   dex.push(entry);
   pet.dexId = dex.length - 1;
   saveDex();
@@ -402,6 +461,8 @@ const AWARDS = [
   { id: "rich",      icon: "💰", name: "High Roller",      desc: "Earn 500 coins in total" },
   { id: "gem_pro",   icon: "💎", name: "Gem Master",       desc: "Score 15+ in one Gem Catch game" },
   { id: "memory_ace",icon: "🃏", name: "Sharp Memory",     desc: "Win Memory Match in 8 moves or fewer" },
+  { id: "first_win", icon: "⚔️", name: "First Blood",       desc: "Win your first dragon battle" },
+  { id: "champion",  icon: "👑", name: "Champion",          desc: "Win 10 dragon battles" },
 ];
 function unlock(id) {
   if (unlocked.includes(id)) return;
@@ -832,8 +893,12 @@ function confirmBreed() {
     if (!confirm("Breeding starts a brand-new egg and replaces your current dragon. Continue?")) return;
   }
   const parentTypes = breedPicks.map(i => dex[i].type).filter(Boolean);
+  // inherit genes from both parents (fall back to random for older saved dragons)
+  const g1 = dex[breedPicks[0]].genes || randomGenes();
+  const g2 = dex[breedPicks[1]].genes || randomGenes();
+  const childGenes = breedGenes(g1, g2);
   coins -= BREED_COST; saveCoins();
-  pet = freshPet({ born: Date.now(), lastTick: Date.now(), heritage: parentTypes });
+  pet = freshPet({ born: Date.now(), lastTick: Date.now(), heritage: parentTypes, genes: childGenes });
   save();
   document.getElementById("breed-modal").classList.remove("show");
   document.getElementById("death-overlay").classList.remove("show");
@@ -843,6 +908,149 @@ function confirmBreed() {
   render();
 }
 function closeBreed() { document.getElementById("breed-modal").classList.remove("show"); }
+
+// ====================== Battle system ======================
+let battle = null;
+const FOE_NAMES = ["Grimscale", "Emberfang", "Frostclaw", "Stormwing", "Venomtail", "Bouldermaw", "Shadowhorn"];
+
+function openBattle() {
+  if (!pet.hatched || !pet.alive) { setMessage("You need a living dragon to battle!"); return; }
+  if (pet.energy < 20) { setMessage("Too tired to battle! Let your dragon rest first. 😪"); return; }
+  SFX.click();
+
+  // generate a wild opponent roughly scaled to the player's gene strength
+  const lvl = geneScore(pet.genes);
+  const drift = () => rnd(-3, 4);
+  const foeGenes = { str: Math.max(3, Math.round(pet.genes.str + drift())),
+                     def: Math.max(3, Math.round(pet.genes.def + drift())),
+                     spd: Math.max(3, Math.round(pet.genes.spd + drift())),
+                     hp:  Math.max(15, Math.round(pet.genes.hp + rnd(-5, 6))) };
+  const foeType = ELEMENTAL_TYPES[rnd(0, ELEMENTAL_TYPES.length - 1)];
+
+  battle = {
+    you:  { genes: pet.genes, hp: pet.genes.hp * 3, max: pet.genes.hp * 3, specials: 3, defending: false },
+    foe:  { name: FOE_NAMES[rnd(0, FOE_NAMES.length - 1)], type: foeType, genes: foeGenes,
+            hp: foeGenes.hp * 3, max: foeGenes.hp * 3, defending: false },
+    over: false,
+  };
+
+  document.getElementById("foe-emoji").textContent = TYPES[foeType].adult;
+  document.getElementById("foe-name").textContent = battle.foe.name;
+  document.getElementById("foe-stats").textContent = `${TYPES[foeType].name} · STR ${foeGenes.str} DEF ${foeGenes.def} SPD ${foeGenes.spd}`;
+  document.getElementById("you-emoji").textContent = pet.type ? TYPES[pet.type].adult : "🐲";
+  document.getElementById("you-name").textContent = pet.name;
+  document.getElementById("you-stats").textContent = `STR ${pet.genes.str} DEF ${pet.genes.def} SPD ${pet.genes.spd}`;
+  setBattleLog("A wild " + battle.foe.name + " appears! Choose your move.");
+  renderBattle();
+  document.getElementById("battle-modal").classList.add("show");
+
+  // speed decides who strikes first
+  if (foeGenes.spd > pet.genes.spd) {
+    setBattleLog(battle.foe.name + " is faster and strikes first!");
+    document.getElementById("battle-actions").innerHTML = "";
+    setTimeout(foeTurn, 900);
+  }
+}
+
+function setBattleLog(msg) { document.getElementById("battle-log").textContent = msg; }
+
+function renderBattle() {
+  document.getElementById("foe-hp").style.width = Math.max(0, battle.foe.hp / battle.foe.max * 100) + "%";
+  document.getElementById("you-hp").style.width = Math.max(0, battle.you.hp / battle.you.max * 100) + "%";
+  const acts = document.getElementById("battle-actions");
+  if (battle.over) { acts.innerHTML = ""; return; }
+  acts.innerHTML =
+    `<button class="b-act" onclick="playerMove('attack')">⚔️ Attack</button>
+     <button class="b-act" onclick="playerMove('special')" ${battle.you.specials <= 0 ? "disabled" : ""}>🔥 Special (${battle.you.specials})</button>
+     <button class="b-act" onclick="playerMove('defend')">🛡️ Defend</button>`;
+}
+
+function dmg(attacker, defender, mult) {
+  // dodge chance from speed difference
+  const dodge = Math.max(0, Math.min(0.35, (defender.genes.spd - attacker.genes.spd) * 0.03));
+  if (Math.random() < dodge) return { hit: false, amount: 0 };
+  let amount = Math.round((attacker.genes.str * (mult || 1) + rnd(0, 4)) - defender.genes.def / 2);
+  amount = Math.max(1, amount);
+  if (defender.defending) { amount = Math.round(amount / 2); defender.defending = false; }
+  return { hit: true, amount };
+}
+
+function playerMove(move) {
+  if (!battle || battle.over) return;
+  if (move === "defend") {
+    battle.you.defending = true;
+    SFX.clean();
+    setBattleLog(pet.name + " braces for impact! 🛡️ (next hit halved)");
+    document.getElementById("battle-actions").innerHTML = "";
+    setTimeout(foeTurn, 900);
+    return;
+  }
+  const mult = move === "special" ? 1.7 : 1;
+  if (move === "special") { battle.you.specials--; SFX.evolve(); } else { SFX.play(); }
+  const r = dmg(battle.you, battle.foe, mult);
+  if (!r.hit) setBattleLog(battle.foe.name + " dodged your " + (move === "special" ? "special!" : "attack!"));
+  else { battle.foe.hp -= r.amount; setBattleLog(pet.name + (move === "special" ? " unleashes a special for " : " hits for ") + r.amount + "! 💥"); }
+  renderBattle();
+
+  if (battle.foe.hp <= 0) { return endBattle(true); }
+  document.getElementById("battle-actions").innerHTML = "";
+  setTimeout(foeTurn, 950);
+}
+
+function foeTurn() {
+  if (!battle || battle.over) return;
+  // simple AI: mostly attack, sometimes special, sometimes defend when low
+  const lowHP = battle.foe.hp < battle.foe.max * 0.3;
+  const roll = Math.random();
+  let move = "attack";
+  if (lowHP && roll < 0.3) move = "defend";
+  else if (roll < 0.25) move = "special";
+
+  if (move === "defend") {
+    battle.foe.defending = true;
+    setBattleLog(battle.foe.name + " takes a defensive stance. 🛡️");
+    renderBattle();
+    if (!battle.over) setTimeout(() => { renderBattle(); }, 300);
+    document.getElementById("battle-actions").innerHTML =
+      `<button class="b-act" onclick="playerMove('attack')">⚔️ Attack</button>
+       <button class="b-act" onclick="playerMove('special')" ${battle.you.specials <= 0 ? "disabled" : ""}>🔥 Special (${battle.you.specials})</button>
+       <button class="b-act" onclick="playerMove('defend')">🛡️ Defend</button>`;
+    return;
+  }
+
+  const mult = move === "special" ? 1.6 : 1;
+  const r = dmg(battle.foe, battle.you, mult);
+  if (!r.hit) setBattleLog(pet.name + " nimbly dodged " + battle.foe.name + "'s attack!");
+  else { battle.you.hp -= r.amount; setBattleLog(battle.foe.name + (move === "special" ? " uses a special for " : " strikes for ") + r.amount + "! 😣"); SFX.heal(); }
+  renderBattle();
+
+  if (battle.you.hp <= 0) { return endBattle(false); }
+  renderBattle();
+}
+
+function endBattle(won) {
+  battle.over = true;
+  document.getElementById("battle-actions").innerHTML = "";
+  if (won) {
+    const reward = 25 + rarityStars(battle.foe.genes) * 10;
+    earnCoins(reward); checkRich();
+    battleWins++; localStorage.setItem("dragongotchiBattleWins", String(battleWins));
+    unlock("first_win");
+    if (battleWins >= 10) unlock("champion");
+    if (pet.alive) { pet.energy = clamp(pet.energy - 20); pet.happy = clamp(pet.happy + 8); save(); }
+    setBattleLog(`🏆 Victory! You defeated ${battle.foe.name} and earned ${reward} 🪙!`);
+    SFX.coin();
+  } else {
+    if (pet.alive) { pet.energy = clamp(pet.energy - 20); pet.health = clamp(pet.health - 10); save(); }
+    setBattleLog(`💢 Defeated by ${battle.foe.name}. Your dragon limps away (-10 health).`);
+    SFX.death();
+  }
+  render();
+}
+function closeBattle() {
+  battle = null;
+  document.getElementById("battle-modal").classList.remove("show");
+}
 
 // ====================== Daily login bonus ======================
 function checkDailyBonus() {
@@ -875,10 +1083,12 @@ function openGallery() {
     list.innerHTML = dex.slice().reverse().map(d => {
       const t = TYPES[d.type];
       const date = new Date(d.date).toLocaleDateString();
+      const stars = d.genes ? "⭐".repeat(rarityStars(d.genes)) : "";
+      const g = d.genes ? `STR ${d.genes.str} · DEF ${d.genes.def} · SPD ${d.genes.spd} · HP ${d.genes.hp}` : "";
       return `<div class="dex-item">
         <span class="emoji">${t ? t.adult : "🐲"}</span>
-        <span class="info"><b>${d.name} — ${t ? t.name : "?"} Dragon</b>
-          <small>Reached age ${d.ageReached} · ${date}</small></span>
+        <span class="info"><b>${d.name} — ${t ? t.name : "?"} ${stars}</b>
+          <small>${g}<br>Reached age ${d.ageReached} · ${date}</small></span>
       </div>`;
     }).join("");
   }
@@ -930,8 +1140,15 @@ function render() {
   document.getElementById("bar-energy").style.width = pet.energy + "%";
   document.getElementById("bar-health").style.width = pet.health + "%";
 
+  // genes / rarity line
+  if (pet.genes) {
+    const stars = "⭐".repeat(rarityStars(pet.genes));
+    document.getElementById("genes-line").textContent =
+      `🧬 ${stars}  ·  STR ${pet.genes.str}  DEF ${pet.genes.def}  SPD ${pet.genes.spd}  HP ${pet.genes.hp}`;
+  }
+
   const dead = !pet.alive;
-  ["btn-feed","btn-play","btn-clean","btn-heal","btn-game","btn-shop"].forEach(id =>
+  ["btn-feed","btn-play","btn-clean","btn-heal","btn-game","btn-shop","btn-battle"].forEach(id =>
     document.getElementById(id).disabled = dead);
   document.getElementById("btn-sleep").disabled = dead || !pet.hatched;
 }
