@@ -54,6 +54,8 @@
   .zzz { position: absolute; top: 30px; right: 90px; font-size: 1.5rem; color: #557; animation: float 2.5s ease-in-out infinite; }
   @keyframes float { 0%{opacity:0; transform: translateY(0);} 30%{opacity:1;} 100%{opacity:0; transform: translateY(-30px);} }
   .poop { position: absolute; bottom: 8px; font-size: 1.5rem; }
+  #decor-area { position: absolute; inset: 0; pointer-events: none; }
+  .decor-prop { position: absolute; top: 6px; font-size: 1.6rem; opacity: 0.9; }
 
   .mood {
     position: absolute; bottom: 70px; font-size: 1.6rem; pointer-events: none;
@@ -136,6 +138,7 @@
     </div>
 
     <div class="stage" id="stage">
+      <div id="decor-area"></div>
       <div class="zzz" id="zzz" style="display:none;">💤</div>
       <div class="dragon" id="dragon" onclick="petDragon()">🥚</div>
       <div id="poop-area"></div>
@@ -187,8 +190,10 @@
 <div class="modal-bg" id="shop-modal">
   <div class="modal">
     <h2>🛒 Dragon Shop</h2>
-    <div class="sub">Spend 🪙 coins (earn them in the Mini-Game!)</div>
+    <div class="sub">Spend 🪙 coins (earn them in the Mini-Games!)</div>
     <div id="shop-list"></div>
+    <div class="dex-progress" style="margin:1rem 0 0.5rem;">🪴 Room Decorations</div>
+    <div id="decor-list"></div>
     <button class="close" onclick="closeShop()">Close</button>
   </div>
 </div>
@@ -199,7 +204,19 @@
     <h2>📖 Dragon Collection</h2>
     <div class="dex-progress" id="dex-progress"></div>
     <div id="dex-list"></div>
+    <button class="close" style="background:#9b59b6; margin-top:0.75rem;" onclick="openBreed()">🧬 Breed Two Dragons</button>
     <button class="close" onclick="closeGallery()">Close</button>
+  </div>
+</div>
+
+<!-- Breed modal -->
+<div class="modal-bg" id="breed-modal">
+  <div class="modal">
+    <h2>🧬 Breed Dragons</h2>
+    <div class="sub">Pick <b>two</b> dragons from your collection. Their egg will hatch into a dragon that inherits one parent's type! (Costs 🪙 50)</div>
+    <div id="breed-list"></div>
+    <button class="close" style="background:#9b59b6;" id="breed-confirm" onclick="confirmBreed()">Breed (🪙 50)</button>
+    <button class="close" onclick="closeBreed()">Cancel</button>
   </div>
 </div>
 
@@ -246,11 +263,13 @@ let coins = parseInt(localStorage.getItem("dragongotchiCoins") || "0");
 let coinsEarned = parseInt(localStorage.getItem("dragongotchiCoinsEarned") || "0"); // lifetime
 let dex = JSON.parse(localStorage.getItem("dragongotchiDex") || "[]");
 let unlocked = JSON.parse(localStorage.getItem("dragongotchiAwards") || "[]"); // achievement ids
+let decorOwned = JSON.parse(localStorage.getItem("dragongotchiDecor") || "[]"); // owned decoration ids
 let muted = localStorage.getItem("dragongotchiMuted") === "1";
 function saveCoins() { localStorage.setItem("dragongotchiCoins", coins); }
 function saveEarned() { localStorage.setItem("dragongotchiCoinsEarned", coinsEarned); }
 function saveDex() { localStorage.setItem("dragongotchiDex", JSON.stringify(dex)); }
 function saveAwards() { localStorage.setItem("dragongotchiAwards", JSON.stringify(unlocked)); }
+function saveDecor() { localStorage.setItem("dragongotchiDecor", JSON.stringify(decorOwned)); }
 
 // give coins and credit lifetime total (used by mini-games)
 function earnCoins(n) { coins += n; coinsEarned += n; saveCoins(); saveEarned(); }
@@ -260,7 +279,7 @@ const DEFAULT = {
   name: "Drako", born: Date.now(), lastTick: Date.now(),
   hunger: 80, happy: 80, energy: 90, health: 100,
   sleeping: false, poops: 0, alive: true, ageMin: 0, hatched: false,
-  type: null, dexId: null, perfectCare: true,
+  type: null, dexId: null, perfectCare: true, heritage: null,
   care: { feed: 0, play: 0, sleepMin: 0, heal: 0, pet: 0, neglect: 0 },
 };
 let pet = load();
@@ -340,6 +359,10 @@ const ELEMENTAL_TYPES = ["fire","ice","storm","nature","shadow"];
 function determineType() {
   // Secret evolution: if you never let any stat fall too low, you earn the Rainbow Dragon
   if (pet.perfectCare) return "rainbow";
+  // Bred dragons inherit one of their two parents' types
+  if (pet.heritage && pet.heritage.length) {
+    return pet.heritage[Math.floor(Math.random() * pet.heritage.length)];
+  }
   const c = pet.care;
   const scores = { fire: c.play, ice: c.sleepMin, storm: c.pet, nature: c.feed, shadow: c.neglect };
   let bestKey = "storm", bestVal = -1;
@@ -558,15 +581,31 @@ const SHOP = [
   { id:"potion",  emoji:"🧪", name:"Health Potion", cost:30, desc:"+50 health", apply:p=>{p.health=clamp(p.health+50);} },
   { id:"vitamin", emoji:"⭐", name:"Super Vitamin", cost:60, desc:"+20 to ALL stats", apply:p=>{p.hunger=clamp(p.hunger+20);p.happy=clamp(p.happy+20);p.energy=clamp(p.energy+20);p.health=clamp(p.health+20);} },
 ];
+// Room decorations — bought once, then displayed in the dragon's room forever
+const DECOR = [
+  { id:"plant",    emoji:"🪴", name:"Potted Plant",   cost:30 },
+  { id:"painting", emoji:"🖼️", name:"Painting",        cost:40 },
+  { id:"torch",    emoji:"🔦", name:"Lantern",         cost:50 },
+  { id:"crystal",  emoji:"🔮", name:"Crystal Ball",    cost:60 },
+  { id:"treasure", emoji:"💰", name:"Treasure Pile",   cost:80 },
+  { id:"castle",   emoji:"🏰", name:"Castle Backdrop", cost:120 },
+];
 function openShop() {
   SFX.click();
-  const list = document.getElementById("shop-list");
-  list.innerHTML = SHOP.map(item => `
+  document.getElementById("shop-list").innerHTML = SHOP.map(item => `
     <div class="shop-item">
       <span class="emoji">${item.emoji}</span>
       <span class="info"><b>${item.name}</b><small>${item.desc}</small></span>
       <button ${coins < item.cost ? "disabled" : ""} onclick="buyItem('${item.id}')">🪙 ${item.cost}</button>
     </div>`).join("");
+  document.getElementById("decor-list").innerHTML = DECOR.map(d => {
+    const owned = decorOwned.includes(d.id);
+    return `<div class="shop-item">
+      <span class="emoji">${d.emoji}</span>
+      <span class="info"><b>${d.name}</b><small>${owned ? "Owned ✓ — shown in your room" : "Decorate your dragon's room"}</small></span>
+      <button ${owned || coins < d.cost ? "disabled" : ""} onclick="buyDecor('${d.id}')">${owned ? "✓" : "🪙 " + d.cost}</button>
+    </div>`;
+  }).join("");
   document.getElementById("shop-modal").classList.add("show");
 }
 function closeShop() { document.getElementById("shop-modal").classList.remove("show"); }
@@ -579,6 +618,15 @@ function buyItem(id) {
   SFX.coin(); mood(item.emoji);
   setMessage(`Used ${item.name}! ${item.emoji}`);
   render(); openShop(); // refresh affordability
+}
+function buyDecor(id) {
+  const d = DECOR.find(x => x.id === id);
+  if (!d || decorOwned.includes(id) || coins < d.cost) return;
+  coins -= d.cost; saveCoins();
+  decorOwned.push(id); saveDecor();
+  SFX.coin();
+  setMessage(`Decorated with a ${d.name}! ${d.emoji}`);
+  render(); openShop();
 }
 
 // ====================== Mini-game: Gem Catch ======================
@@ -746,6 +794,72 @@ function openAwards() {
 }
 function closeAwards() { document.getElementById("awards-modal").classList.remove("show"); }
 
+// ====================== Breeding ======================
+const BREED_COST = 50;
+let breedPicks = [];
+function openBreed() {
+  SFX.click();
+  if (dex.length < 2) { setMessage("You need at least 2 dragons in your collection to breed!"); return; }
+  breedPicks = [];
+  renderBreedList();
+  document.getElementById("gallery-modal").classList.remove("show");
+  document.getElementById("breed-modal").classList.add("show");
+}
+function renderBreedList() {
+  document.getElementById("breed-list").innerHTML = dex.map((d, i) => {
+    const t = TYPES[d.type];
+    const picked = breedPicks.includes(i);
+    return `<div class="shop-item" onclick="toggleBreedPick(${i})" style="cursor:pointer; outline:${picked ? "2px solid #9b59b6" : "none"};">
+      <span class="emoji">${t ? t.adult : "🐲"}</span>
+      <span class="info"><b>${d.name} — ${t ? t.name : "?"}</b><small>age ${d.ageReached}</small></span>
+      <span>${picked ? "✅" : "⬜"}</span>
+    </div>`;
+  }).join("");
+  const btn = document.getElementById("breed-confirm");
+  btn.disabled = breedPicks.length !== 2 || coins < BREED_COST;
+  btn.textContent = `Breed (🪙 ${BREED_COST})` + (coins < BREED_COST ? " — need more coins" : "");
+}
+function toggleBreedPick(i) {
+  const idx = breedPicks.indexOf(i);
+  if (idx >= 0) breedPicks.splice(idx, 1);
+  else { if (breedPicks.length >= 2) breedPicks.shift(); breedPicks.push(i); }
+  SFX.click();
+  renderBreedList();
+}
+function confirmBreed() {
+  if (breedPicks.length !== 2 || coins < BREED_COST) return;
+  if (pet.hatched && pet.alive) {
+    if (!confirm("Breeding starts a brand-new egg and replaces your current dragon. Continue?")) return;
+  }
+  const parentTypes = breedPicks.map(i => dex[i].type).filter(Boolean);
+  coins -= BREED_COST; saveCoins();
+  pet = freshPet({ born: Date.now(), lastTick: Date.now(), heritage: parentTypes });
+  save();
+  document.getElementById("breed-modal").classList.remove("show");
+  document.getElementById("death-overlay").classList.remove("show");
+  const names = breedPicks.map(i => dex[i].name).join(" × ");
+  setMessage(`🧬 ${names} produced an egg! Tap it to hatch — it'll inherit a parent's type. 🥚`);
+  SFX.evolve();
+  render();
+}
+function closeBreed() { document.getElementById("breed-modal").classList.remove("show"); }
+
+// ====================== Daily login bonus ======================
+function checkDailyBonus() {
+  const today = new Date().toDateString();
+  const last = localStorage.getItem("dragongotchiLastBonus");
+  if (last === today) return;
+  let streak = parseInt(localStorage.getItem("dragongotchiStreak") || "0");
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  streak = (last === yesterday) ? streak + 1 : 1;
+  const bonus = Math.min(100, 20 + (streak - 1) * 10);
+  earnCoins(bonus);
+  checkRich();
+  localStorage.setItem("dragongotchiLastBonus", today);
+  localStorage.setItem("dragongotchiStreak", String(streak));
+  setTimeout(() => { toast(`🎁 Daily bonus! +${bonus} 🪙 (Day ${streak} streak)`); SFX.coin(); }, 400);
+}
+
 // ====================== Gallery ======================
 function openGallery() {
   SFX.click();
@@ -795,6 +909,13 @@ function render() {
 
   document.getElementById("zzz").style.display = pet.sleeping ? "block" : "none";
 
+  // room decorations
+  document.getElementById("decor-area").innerHTML = decorOwned.map((id, i) => {
+    const dec = DECOR.find(x => x.id === id);
+    if (!dec) return "";
+    return `<span class="decor-prop" style="left:${6 + i * 15}%">${dec.emoji}</span>`;
+  }).join("");
+
   const area = document.getElementById("poop-area");
   area.innerHTML = "";
   for (let i = 0; i < pet.poops; i++) {
@@ -819,6 +940,7 @@ function render() {
 if (muted) document.getElementById("mute-btn").textContent = "🔇";
 tick();
 render();
+checkDailyBonus();
 setInterval(tick, 3000);
 </script>
 </body>
