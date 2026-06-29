@@ -44,11 +44,11 @@
   }
   .stage.night { background: linear-gradient(180deg, #2a2a55 0%, #3a4a3a 100%); }
   .dragon {
-    font-size: 5rem; transition: transform 0.2s; animation: bob 2s ease-in-out infinite;
-    cursor: pointer; user-select: none;
+    transition: transform 0.2s; animation: bob 2s ease-in-out infinite;
+    cursor: pointer; user-select: none; line-height: 0;
   }
-  .dragon.sleeping { animation: none; filter: grayscale(0.3) brightness(0.8) !important; }
-  .dragon.sick { filter: hue-rotate(80deg) brightness(0.85) !important; }
+  .dragon.sleeping { animation: none; }
+  #dragon-canvas { display: block; }
   @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-12px);} }
 
   .zzz { position: absolute; top: 30px; right: 90px; font-size: 1.5rem; color: #557; animation: float 2.5s ease-in-out infinite; }
@@ -150,7 +150,7 @@
     <div class="stage" id="stage">
       <div id="decor-area"></div>
       <div class="zzz" id="zzz" style="display:none;">💤</div>
-      <div class="dragon" id="dragon" onclick="petDragon()">🥚</div>
+      <div class="dragon" id="dragon" onclick="petDragon()"><canvas id="dragon-canvas" width="150" height="130"></canvas></div>
       <div id="poop-area"></div>
 
       <!-- death overlay -->
@@ -194,6 +194,7 @@
     <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
     <button class="btn" id="btn-dex"   onclick="openGallery()"><span class="ico">📖</span>Gallery</button>
     <button class="btn" id="btn-quests" onclick="openQuests()"><span class="ico">📜</span>Quests</button>
+    <button class="btn" id="btn-expedition" onclick="openExpeditions()"><span class="ico">🗺️</span>Expedition</button>
     <button class="btn" id="btn-awards" onclick="openAwards()"><span class="ico">🏆</span>Awards</button>
     <button class="btn" id="btn-reset" onclick="confirmReset()"><span class="ico">🔄</span>Reset</button>
   </div>
@@ -267,6 +268,16 @@
     <div class="dex-progress" id="awards-progress"></div>
     <div id="awards-list"></div>
     <button class="close" onclick="closeAwards()">Close</button>
+  </div>
+</div>
+
+<!-- Expeditions modal -->
+<div class="modal-bg" id="expedition-modal">
+  <div class="modal">
+    <h2>🗺️ Expeditions</h2>
+    <div class="sub">Send a collected dragon on a timed mission to earn 🪙 while you play. Stronger dragons earn more!</div>
+    <div id="expedition-body"></div>
+    <button class="close" onclick="closeExpeditions()">Close</button>
   </div>
 </div>
 
@@ -501,6 +512,7 @@ function toast(msg) {
 // ====================== Time / decay ======================
 function clamp(v) { return Math.max(0, Math.min(100, v)); }
 function tick() {
+  checkExpedition();          // expeditions resolve independently of the pet's life
   if (!pet.alive) return;
   const now = Date.now();
   const elapsedMin = (now - pet.lastTick) / 60000;
@@ -546,6 +558,7 @@ function tick() {
     setMessage("✨ EVOLUTION! " + TYPES[pet.type].blurb);
     SFX.evolve();
     mood(pet.type === "rainbow" ? "🌈" : "✨");
+    spawnParticles(pet.type === "rainbow" ? "rainbow" : "gold", 26);
     unlock("evolve");
     if (pet.type === "rainbow") unlock("rainbow");
     checkCollector();
@@ -584,12 +597,12 @@ function petDragon() {
   if (!pet.alive || pet.sleeping) return;
   pet.happy = clamp(pet.happy + 3); pet.care.pet += 1;
   setMessage("Your dragon loves the attention! 💜");
-  SFX.pet(); mood("💜"); bounce(); questProgress("pet"); save(); render();
+  SFX.pet(); mood("💜"); spawnParticles("heart", 6); bounce(); questProgress("pet"); save(); render();
 }
 function hatch() {
   pet.hatched = true; pet.born = Date.now(); pet.lastTick = Date.now();
   setMessage("🎉 Your dragon hatched! Take good care of it.");
-  SFX.evolve(); mood("🎉"); bounce(); unlock("hatch"); save(); render();
+  SFX.evolve(); mood("🎉"); spawnParticles("gold", 22); bounce(); unlock("hatch"); save(); render();
 }
 function renameDragon() {
   if (!pet.alive) return;
@@ -607,7 +620,7 @@ function feed() {
   if (pet.hunger >= 100) { setMessage("Your dragon is too full! 🤢"); mood("🤢"); return; }
   pet.hunger = clamp(pet.hunger + 25); pet.energy = clamp(pet.energy + 5); pet.care.feed += 1;
   if (Math.random() < 0.4) pet.poops = Math.min(4, pet.poops + 1);
-  setMessage("Nom nom! 🍖 Yummy."); SFX.feed(); mood("😋"); bounce(); questProgress("feed"); save(); render();
+  setMessage("Nom nom! 🍖 Yummy."); SFX.feed(); mood("😋"); spawnParticles("food", 8); bounce(); questProgress("feed"); save(); render();
 }
 function playWith() {
   if (!guard()) { setMessage("Hatch or wake your dragon first!"); return; }
@@ -1195,6 +1208,96 @@ function openQuests() {
 }
 function closeQuests() { document.getElementById("quests-modal").classList.remove("show"); }
 
+// ====================== Expeditions (idle missions) ======================
+const EXPEDITIONS = [
+  { id: "scout", name: "Quick Scout", mins: 2,  base: 20 },
+  { id: "hunt",  name: "Treasure Hunt", mins: 5, base: 55 },
+  { id: "quest", name: "Epic Quest", mins: 10, base: 120 },
+];
+let expedition = JSON.parse(localStorage.getItem("dragongotchiExpedition") || "null");
+function saveExpedition() {
+  if (expedition) localStorage.setItem("dragongotchiExpedition", JSON.stringify(expedition));
+  else localStorage.removeItem("dragongotchiExpedition");
+}
+function checkExpedition() {
+  if (!expedition) return;
+  if (Date.now() >= expedition.endTime) {
+    const reward = expedition.reward;
+    const bonus = expedition.bonus;
+    earnCoins(reward + bonus); checkRich();
+    const who = expedition.name;
+    expedition = null; saveExpedition();
+    setTimeout(() => {
+      toast(`🗺️ ${who} returned from their expedition with ${reward + bonus} 🪙!` + (bonus ? " (lucky treasure!)" : ""));
+      SFX.coin();
+    }, 500);
+  }
+}
+function startExpedition(dexIndex, expId) {
+  if (expedition) return;
+  const e = EXPEDITIONS.find(x => x.id === expId);
+  const d = dex[dexIndex];
+  if (!e || !d) return;
+  const rarity = d.genes ? rarityStars(d.genes) : 1;
+  const reward = Math.round(e.base * (1 + rarity * 0.25));
+  const lucky = Math.random() < 0.1 + rarity * 0.04;
+  const bonus = lucky ? Math.round(reward * 0.6) : 0;
+  expedition = {
+    name: d.name, type: d.type, emoji: (TYPES[d.type] ? TYPES[d.type].adult : "🐲"),
+    endTime: Date.now() + e.mins * 60000, reward, bonus, label: e.name,
+  };
+  saveExpedition();
+  SFX.click();
+  renderExpeditions();
+}
+
+let expTimer = null;
+function openExpeditions() {
+  SFX.click();
+  renderExpeditions();
+  document.getElementById("expedition-modal").classList.add("show");
+  clearInterval(expTimer);
+  expTimer = setInterval(renderExpeditions, 1000);
+}
+function closeExpeditions() {
+  clearInterval(expTimer); expTimer = null;
+  document.getElementById("expedition-modal").classList.remove("show");
+}
+function renderExpeditions() {
+  checkExpedition();
+  const body = document.getElementById("expedition-body");
+  if (expedition) {
+    const remain = Math.max(0, expedition.endTime - Date.now());
+    const mm = Math.floor(remain / 60000), ss = Math.floor((remain % 60000) / 1000);
+    const done = remain <= 0;
+    body.innerHTML = `
+      <div class="shop-item">
+        <span class="emoji">${expedition.emoji}</span>
+        <span class="info"><b>${expedition.name} — ${expedition.label}</b>
+          <small>${done ? "Returning…" : "Time left: " + mm + "m " + (ss < 10 ? "0" : "") + ss + "s"}</small></span>
+      </div>
+      <div class="dex-progress" style="margin-top:0.5rem;">Reward on return: 🪙 ${expedition.reward}${expedition.bonus ? " (+treasure!)" : ""}</div>`;
+    return;
+  }
+  if (dex.length === 0) {
+    body.innerHTML = `<div class="dex-empty">Raise a dragon to Adult first — then you can send it on expeditions! 🥚</div>`;
+    return;
+  }
+  // pick a dragon then a mission length
+  body.innerHTML = `<div class="dex-progress" style="margin-bottom:0.5rem;">Choose a dragon &amp; mission:</div>` +
+    dex.map((d, i) => {
+      const t = TYPES[d.type];
+      const stars = d.genes ? "⭐".repeat(rarityStars(d.genes)) : "";
+      return `<div class="shop-item">
+        <span class="emoji">${t ? t.adult : "🐲"}</span>
+        <span class="info"><b>${d.name} ${stars}</b><small>${t ? t.name : "?"}</small></span>
+        <span style="display:flex; gap:0.25rem;">
+          ${EXPEDITIONS.map(e => `<button class="b-act" style="padding:0.35rem 0.5rem; font-size:0.7rem;" onclick="startExpedition(${i},'${e.id}')" title="${e.name}">${e.mins}m</button>`).join("")}
+        </span>
+      </div>`;
+    }).join("");
+}
+
 // ====================== Gallery ======================
 function openGallery() {
   SFX.click();
@@ -1234,11 +1337,8 @@ function render() {
   document.getElementById("pet-stage").textContent = typeName + stage.name;
   document.getElementById("pet-age").textContent = "Age: " + Math.floor(pet.ageMin);
 
-  const d = document.getElementById("dragon");
-  d.textContent = pet.hatched ? stage.emoji : "🥚";
-  d.classList.toggle("sleeping", pet.sleeping);
-  d.classList.toggle("sick", pet.hatched && pet.health < 30 && pet.alive);
-  d.style.filter = (stage.tint && !pet.sleeping && !(pet.hatched && pet.health < 30)) ? stage.tint : "";
+  // the dragon itself is drawn on the canvas by the animation loop; just toggle bobbing
+  document.getElementById("dragon").classList.toggle("sleeping", pet.sleeping);
 
   // day/night by real clock
   const hr = new Date().getHours();
@@ -1280,13 +1380,154 @@ function render() {
   document.getElementById("btn-sleep").disabled = dead || !pet.hatched;
 }
 
+// ====================== Canvas dragon + particles ======================
+const DRAGON_COLORS = {
+  fire:   { body: "#e8483f", wing: "#ff9a6b", belly: "#ffd2b0" },
+  ice:    { body: "#4f9be8", wing: "#a9d6ff", belly: "#e3f3ff" },
+  storm:  { body: "#9b6dff", wing: "#c4a9ff", belly: "#e8dcff" },
+  nature: { body: "#3ec98a", wing: "#8ef0c0", belly: "#daffe9" },
+  shadow: { body: "#4a4a66", wing: "#7a7a99", belly: "#b6b6cc" },
+  rainbow:{ body: "#ff7eb3", wing: "#8ed0ff", belly: "#fff0bf" },
+  base:   { body: "#7b6cf0", wing: "#b0a4ff", belly: "#e6e0ff" },
+};
+let particles = [];
+function spawnParticles(kind, n) {
+  const cx = 75, cy = 60;
+  for (let i = 0; i < (n || 14); i++) {
+    const ang = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.5;
+    let color = "#ffd700";
+    if (kind === "heart") color = "#ff6ba6";
+    else if (kind === "food") color = "#ffb347";
+    else if (kind === "rainbow") color = ["#ff5d5d","#ffb13d","#ffe14d","#5dff9b","#5db8ff","#b06bff"][i % 6];
+    particles.push({ x: cx, y: cy, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 1,
+                     life: 1, decay: 0.015 + Math.random() * 0.02, color, size: 2 + Math.random() * 3,
+                     heart: kind === "heart" });
+  }
+}
+
+function drawEgg(c) {
+  c.save(); c.translate(75, 64);
+  c.fillStyle = "#f3e6c8"; c.strokeStyle = "#c9b48a"; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(0, 0, 26, 33, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+  c.strokeStyle = "#c9b48a";
+  c.beginPath(); c.moveTo(-18, -4); c.lineTo(-6, 2); c.lineTo(-14, 8); c.lineTo(2, 14);
+  c.moveTo(18, -8); c.lineTo(8, -2); c.lineTo(16, 4); c.stroke();
+  // spots
+  c.fillStyle = "#d9c79e";
+  [[-10,-12],[12,6],[-4,18]].forEach(p => { c.beginPath(); c.arc(p[0], p[1], 3.5, 0, 7); c.fill(); });
+  c.restore();
+}
+
+function drawDragon(c, t) {
+  const stageName = lifeStage().name;
+  const scale = stageName === "Baby" ? 0.72 : stageName === "Teen" ? 0.86 : stageName === "Elder" ? 1.12 : 1;
+  const col = DRAGON_COLORS[pet.type] || DRAGON_COLORS.base;
+  const sleeping = pet.sleeping;
+  const sick = pet.hatched && pet.health < 30 && pet.alive;
+  const flap = Math.sin(t / 180) * (sleeping ? 0.05 : 0.4);
+  const breathe = Math.sin(t / 500) * 1.5;
+
+  c.save();
+  c.translate(75, 66 + breathe);
+  c.scale(scale, scale);
+  if (sick) c.globalAlpha = 0.85;
+
+  // wings (behind body)
+  for (const side of [-1, 1]) {
+    c.save(); c.translate(side * 18, -6); c.rotate(side * (0.5 + flap));
+    c.fillStyle = col.wing;
+    c.beginPath(); c.moveTo(0, 0);
+    c.quadraticCurveTo(side * 30, -22, side * 40, 4);
+    c.quadraticCurveTo(side * 26, 6, side * 20, 20);
+    c.quadraticCurveTo(side * 12, 8, 0, 0); c.fill();
+    c.restore();
+  }
+
+  // tail
+  c.strokeStyle = col.body; c.lineWidth = 7; c.lineCap = "round";
+  c.beginPath(); c.moveTo(0, 18); c.quadraticCurveTo(26, 26, 30 + Math.sin(t/300)*4, 8); c.stroke();
+  c.fillStyle = col.body;
+  c.beginPath(); c.moveTo(30, 12); c.lineTo(40, 2); c.lineTo(36, 14); c.fill();
+
+  // body
+  c.fillStyle = col.body;
+  c.beginPath(); c.ellipse(0, 6, 22, 24, 0, 0, Math.PI * 2); c.fill();
+  // belly
+  c.fillStyle = col.belly;
+  c.beginPath(); c.ellipse(0, 12, 12, 15, 0, 0, Math.PI * 2); c.fill();
+
+  // legs
+  c.fillStyle = col.body;
+  for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * 11, 28, 6, 5, 0, 0, 7); c.fill(); }
+
+  // head
+  c.fillStyle = col.body;
+  c.beginPath(); c.arc(0, -20, 17, 0, Math.PI * 2); c.fill();
+  // snout
+  c.beginPath(); c.ellipse(0, -14, 10, 8, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = col.belly;
+  c.beginPath(); c.ellipse(0, -12, 7, 5, 0, 0, Math.PI * 2); c.fill();
+  // nostrils
+  c.fillStyle = "#00000055";
+  c.beginPath(); c.arc(-3, -11, 1, 0, 7); c.arc(3, -11, 1, 0, 7); c.fill();
+
+  // horns
+  c.fillStyle = "#f5e6c0";
+  c.beginPath(); c.moveTo(-9, -33); c.lineTo(-13, -44); c.lineTo(-4, -35); c.fill();
+  c.beginPath(); c.moveTo(9, -33); c.lineTo(13, -44); c.lineTo(4, -35); c.fill();
+
+  // eyes
+  if (sleeping || (Math.floor(t / 2600) % 2 === 0 && (t % 2600) > 2450)) {
+    c.strokeStyle = "#222"; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(-9, -23); c.lineTo(-3, -23); c.moveTo(3, -23); c.lineTo(9, -23); c.stroke();
+  } else {
+    c.fillStyle = "#fff";
+    c.beginPath(); c.arc(-6, -23, 4, 0, 7); c.arc(6, -23, 4, 0, 7); c.fill();
+    c.fillStyle = sick ? "#5a8" : "#23233a";
+    c.beginPath(); c.arc(-5, -22, 2, 0, 7); c.arc(7, -22, 2, 0, 7); c.fill();
+  }
+
+  // rosy cheeks
+  c.fillStyle = "rgba(255,140,180,0.45)";
+  c.beginPath(); c.arc(-11, -16, 3, 0, 7); c.arc(11, -16, 3, 0, 7); c.fill();
+
+  c.restore();
+}
+
+let dragonCtx = null, lastBlinkSpawn = 0;
+function animateDragon(t) {
+  if (!dragonCtx) {
+    const cv = document.getElementById("dragon-canvas");
+    if (!cv || !cv.getContext) { return; }
+    dragonCtx = cv.getContext("2d");
+  }
+  const c = dragonCtx;
+  c.clearRect(0, 0, 150, 130);
+  if (!pet.hatched) drawEgg(c);
+  else drawDragon(c, t);
+
+  // particles
+  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay; }
+  particles = particles.filter(p => p.life > 0);
+  for (const p of particles) {
+    c.globalAlpha = Math.max(0, p.life);
+    c.fillStyle = p.color;
+    if (p.heart) { c.font = p.size * 4 + "px serif"; c.fillText("♥", p.x, p.y); }
+    else { c.beginPath(); c.arc(p.x, p.y, p.size, 0, 7); c.fill(); }
+  }
+  c.globalAlpha = 1;
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(animateDragon);
+}
+
 // ====================== Boot ======================
 if (muted) document.getElementById("mute-btn").textContent = "🔇";
 checkDailyQuests();
+checkExpedition();
 tick();
 render();
 checkDailyBonus();
 setInterval(tick, 3000);
+if (typeof requestAnimationFrame === "function") requestAnimationFrame(animateDragon);
 </script>
 </body>
 </html>
