@@ -184,27 +184,68 @@ const DEFAULT = {
   alive: true,
   ageMin: 0,    // age in "minutes lived"
   hatched: false,
+  type: null,   // locked-in elemental type once Adult
+  // care habits that decide the evolution
+  care: { feed: 0, play: 0, sleepMin: 0, heal: 0, pet: 0, neglect: 0 },
 };
 
 let pet = load();
 
+// deep copy of DEFAULT so the nested `care` object is never shared
+function freshPet(overrides) {
+  const base = JSON.parse(JSON.stringify(DEFAULT));
+  return Object.assign(base, overrides || {});
+}
+
 function load() {
   const saved = localStorage.getItem("dragongotchi");
   if (saved) {
-    try { return Object.assign({}, DEFAULT, JSON.parse(saved)); }
-    catch (e) { return Object.assign({}, DEFAULT); }
+    try {
+      const data = JSON.parse(saved);
+      const p = freshPet(data);
+      p.care = Object.assign({ feed:0, play:0, sleepMin:0, heal:0, pet:0, neglect:0 }, data.care || {});
+      return p;
+    } catch (e) { return freshPet(); }
   }
-  return Object.assign({}, DEFAULT);
+  return freshPet();
 }
 function save() { localStorage.setItem("dragongotchi", JSON.stringify(pet)); }
+
+// ===== Elemental types: how you raise it decides which it becomes =====
+const TYPES = {
+  fire:   { name: "Fire",   trait: "play",     adult: "🐲🔥", elder: "🔥🐉🔥", tint: "hue-rotate(-20deg) saturate(1.4)",
+            blurb: "Raised on play and energy — a fierce Inferno Dragon! 🔥" },
+  ice:    { name: "Ice",    trait: "sleepMin", adult: "🐲❄️", elder: "❄️🐉❄️", tint: "hue-rotate(160deg) saturate(1.2)",
+            blurb: "Raised on rest and calm — a serene Frost Dragon! ❄️" },
+  storm:  { name: "Storm",  trait: "pet",      adult: "🐲⚡", elder: "⚡🐉⚡", tint: "hue-rotate(60deg) saturate(1.3)",
+            blurb: "Raised on love and affection — a dazzling Storm Dragon! ⚡" },
+  nature: { name: "Nature", trait: "feed",     adult: "🐲🌿", elder: "🌿🐉🌿", tint: "hue-rotate(90deg) saturate(1.3)",
+            blurb: "Raised on hearty meals — a mighty Verdant Dragon! 🌿" },
+  shadow: { name: "Shadow", trait: "neglect",  adult: "🐲☠️", elder: "☠️🐉☠️", tint: "grayscale(0.5) brightness(0.8)",
+            blurb: "Raised through hardship and neglect — a brooding Shadow Dragon. ☠️" },
+};
+
+// Decide the type from the dominant care habit (called once at Adult stage)
+function determineType() {
+  const c = pet.care;
+  const scores = {
+    fire: c.play, ice: c.sleepMin, storm: c.pet, nature: c.feed, shadow: c.neglect,
+  };
+  let bestKey = "storm", bestVal = -1;
+  for (const k in scores) {
+    if (scores[k] > bestVal) { bestVal = scores[k]; bestKey = k; }
+  }
+  return bestKey;
+}
 
 // ===== Life stage based on age (minutes) =====
 function lifeStage() {
   if (!pet.hatched) return { name: "Egg", emoji: "🥚" };
   if (pet.ageMin < 3)  return { name: "Baby",  emoji: "🐉" };
   if (pet.ageMin < 10) return { name: "Teen",  emoji: "🦎" };
-  if (pet.ageMin < 25) return { name: "Adult", emoji: "🐲" };
-  return { name: "Elder", emoji: "🐉✨" };
+  const t = pet.type ? TYPES[pet.type] : null;
+  if (pet.ageMin < 25) return { name: "Adult", emoji: t ? t.adult : "🐲", tint: t && t.tint };
+  return { name: "Elder", emoji: t ? t.elder : "🐉✨", tint: t && t.tint };
 }
 
 function clamp(v) { return Math.max(0, Math.min(100, v)); }
@@ -224,6 +265,7 @@ function tick() {
   if (pet.sleeping) {
     pet.energy = clamp(pet.energy + 12 * elapsedMin);
     pet.hunger = clamp(pet.hunger - 1.5 * elapsedMin);
+    pet.care.sleepMin += elapsedMin;
     if (pet.energy >= 100) { pet.sleeping = false; setMessage("Your dragon woke up refreshed! ☀️"); }
   } else {
     pet.hunger = clamp(pet.hunger - 4 * elapsedMin);
@@ -243,6 +285,18 @@ function tick() {
   if (pet.poops >= 3)  healthDrain += 4 * elapsedMin;
   if (healthDrain > 0) pet.health = clamp(pet.health - healthDrain);
   else if (pet.hunger > 50 && pet.happy > 50) pet.health = clamp(pet.health + 1 * elapsedMin);
+
+  // track neglect for the Shadow path
+  if (pet.hunger <= 5 || pet.happy <= 5 || pet.poops >= 3) {
+    pet.care.neglect += elapsedMin;
+  }
+
+  // Evolution! Lock in an elemental type once the dragon becomes an Adult
+  if (pet.hatched && !pet.type && pet.ageMin >= 10) {
+    pet.type = determineType();
+    const t = TYPES[pet.type];
+    setMessage("✨ EVOLUTION! " + t.blurb);
+  }
 
   if (pet.health <= 0) die();
   save();
@@ -266,6 +320,7 @@ function petDragon() {
   if (!pet.hatched) { hatch(); return; }
   if (!pet.alive || pet.sleeping) return;
   pet.happy = clamp(pet.happy + 3);
+  pet.care.pet += 1;
   setMessage("Your dragon loves the attention! 💜");
   bounce();
   save(); render();
@@ -294,6 +349,7 @@ function feed() {
   if (pet.hunger >= 100) { setMessage("Your dragon is too full! 🤢"); return; }
   pet.hunger = clamp(pet.hunger + 25);
   pet.energy = clamp(pet.energy + 5);
+  pet.care.feed += 1;
   if (Math.random() < 0.4) pet.poops = Math.min(4, pet.poops + 1);
   setMessage("Nom nom! 🍖 Yummy.");
   bounce(); save(); render();
@@ -305,6 +361,7 @@ function playWith() {
   pet.happy = clamp(pet.happy + 25);
   pet.energy = clamp(pet.energy - 15);
   pet.hunger = clamp(pet.hunger - 8);
+  pet.care.play += 1;
   setMessage("Wheee! 🎮 So much fun!");
   bounce(); save(); render();
 }
@@ -329,6 +386,7 @@ function heal() {
   if (!pet.hatched || !pet.alive) return;
   if (pet.health >= 100) { setMessage("Your dragon is perfectly healthy! ❤️"); return; }
   pet.health = clamp(pet.health + 30);
+  pet.care.heal += 1;
   setMessage("Took its medicine 💊 Feeling better!");
   bounce(); save(); render();
 }
@@ -337,7 +395,7 @@ function confirmReset() {
   if (confirm("Reset and start over with a new egg?")) restart();
 }
 function restart() {
-  pet = Object.assign({}, DEFAULT, { born: Date.now(), lastTick: Date.now() });
+  pet = freshPet({ born: Date.now(), lastTick: Date.now() });
   document.getElementById("death-overlay").classList.remove("show");
   setMessage("A fresh new egg! Tap it to hatch. 🥚");
   save(); render();
@@ -347,13 +405,16 @@ function restart() {
 function render() {
   const stage = lifeStage();
   document.getElementById("pet-name").textContent = pet.name;
-  document.getElementById("pet-stage").textContent = stage.name;
+  const typeName = pet.type ? TYPES[pet.type].name + " " : "";
+  document.getElementById("pet-stage").textContent = typeName + stage.name;
   document.getElementById("pet-age").textContent = "Age: " + Math.floor(pet.ageMin);
 
   const d = document.getElementById("dragon");
   d.textContent = pet.hatched ? stage.emoji : "🥚";
   d.classList.toggle("sleeping", pet.sleeping);
   d.classList.toggle("sick", pet.hatched && pet.health < 30 && pet.alive);
+  // elemental color tint once evolved (kept off while sick/sleeping styling applies its own filter)
+  d.style.filter = (stage.tint && !pet.sleeping && !(pet.health < 30)) ? stage.tint : "";
 
   document.getElementById("zzz").style.display = pet.sleeping ? "block" : "none";
 
