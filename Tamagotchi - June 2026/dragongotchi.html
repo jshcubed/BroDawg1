@@ -150,6 +150,16 @@
     animation: alertPulse 1s ease-in-out infinite;
   }
   @keyframes alertPulse { 0%,100%{ transform: scale(1); opacity: 0.9; } 50%{ transform: scale(1.12); opacity: 1; } }
+
+  /* notification badges */
+  .notif-badge {
+    position: absolute; top: -4px; right: -2px;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    background: #e74c3c; color: #fff; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 800; line-height: 18px; text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4); display: none;
+  }
+  .btn { position: relative; }
 </style>
 </head>
 <body>
@@ -217,7 +227,7 @@
     <button class="btn" id="btn-game"  onclick="openChooser()"><span class="ico">🎮</span>Mini-Games</button>
     <button class="btn" id="btn-battle" onclick="openBattleSetup(false)"><span class="ico">⚔️</span>Battle</button>
     <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
-    <button class="btn" id="btn-more"  onclick="openMore()"><span class="ico">☰</span>More</button>
+    <button class="btn" id="btn-more"  onclick="openMore()"><span class="ico">☰</span>More<span class="notif-badge" id="more-badge"></span></button>
   </div>
 </div>
 
@@ -229,7 +239,7 @@
     <div class="buttons" style="margin-top:0;">
       <button class="btn" onclick="closeMore(); openGallery()"><span class="ico">📖</span>Gallery</button>
       <button class="btn" onclick="closeMore(); openDragonDex()"><span class="ico">🐉</span>Dragon-Dex</button>
-      <button class="btn" onclick="closeMore(); openIncubator()"><span class="ico">🥚</span>Incubator</button>
+      <button class="btn" onclick="closeMore(); openIncubator()"><span class="ico">🥚</span>Incubator<span class="notif-badge" id="incubator-badge"></span></button>
       <button class="btn" onclick="closeMore(); openWorldMap()"><span class="ico">🌍</span>World Map</button>
       <button class="btn" onclick="closeMore(); openQuests()"><span class="ico">📜</span>Quests</button>
       <button class="btn" onclick="closeMore(); openExpeditions()"><span class="ico">🗺️</span>Expedition</button>
@@ -242,6 +252,20 @@
       <button class="btn" onclick="closeMore(); confirmReset()"><span class="ico">🔄</span>Reset</button>
     </div>
     <button class="close" onclick="closeMore()">Close</button>
+  </div>
+</div>
+
+<!-- First-time tutorial modal -->
+<div class="modal-bg" id="tutorial-modal">
+  <div class="modal" style="text-align:center;">
+    <div id="tut-emoji" style="font-size:3rem; margin-bottom:0.5rem;">🥚</div>
+    <h2 id="tut-title">Welcome to Dragongotchi!</h2>
+    <p id="tut-text" style="color:#dde; font-size:0.9rem; line-height:1.5; margin:0.75rem 0 1rem; min-height:3.5rem;"></p>
+    <div class="dex-progress" id="tut-dots" style="margin-bottom:0.75rem;"></div>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="close" style="flex:1; background:#555;" onclick="closeTutorial()">Skip</button>
+      <button class="close" style="flex:1; background:#2ecc71;" id="tut-next" onclick="nextTutorial()">Next →</button>
+    </div>
   </div>
 </div>
 
@@ -488,6 +512,7 @@ let currentRegion = localStorage.getItem("dragongotchiRegion") || "home";
 let musicOn = localStorage.getItem("dragongotchiMusic") === "1";
 let sfxVol = parseFloat(localStorage.getItem("dragongotchiSfxVol") || "1");
 let musicVol = parseFloat(localStorage.getItem("dragongotchiMusicVol") || "1");
+let lastTeam = JSON.parse(localStorage.getItem("dragongotchiLastTeam") || "null"); // { allies:[], boss:bool }
 
 // compact number formatting: 1250 -> "1,250", 12500 -> "12.5K", 1.2M
 function fmt(n) {
@@ -1163,7 +1188,9 @@ function openBattleSetup(isBoss) {
   if (!pet.hatched || !pet.alive) { setMessage("You need a living dragon to battle!"); return; }
   if (pet.energy < 20) { setMessage("Too tired to battle! Let your dragon rest first. 😪"); return; }
   SFX.click();
-  setupBoss = !!isBoss; setupAllies = [];
+  setupBoss = !!isBoss;
+  // pre-select last battle's allies for convenience
+  setupAllies = (lastTeam && !isBoss ? (lastTeam.allies || []) : []).filter(i => i < dex.length);
   document.getElementById("setup-title").textContent = isBoss ? "👹 Assemble Your Raid Team" : "⚔️ Assemble Your Team";
   renderSetup();
   document.getElementById("setup-modal").classList.add("show");
@@ -1226,6 +1253,9 @@ function startBattle() {
 
   battle = { team, active: 0, foe, over: false, isBoss: setupBoss };
   battle.you = team[0];
+  // remember this team so "Fight Again" and the next setup can reuse it
+  lastTeam = { allies: setupAllies.slice(), boss: setupBoss };
+  localStorage.setItem("dragongotchiLastTeam", JSON.stringify(lastTeam));
 
   document.getElementById("foe-emoji").textContent = foe.emoji;
   document.getElementById("foe-name").textContent = foe.name + (foe.isBoss ? " 👹" : "");
@@ -1441,7 +1471,8 @@ function foeTurnStart() {
 
 function endBattle(won) {
   battle.over = true;
-  document.getElementById("battle-actions").innerHTML = "";
+  document.getElementById("battle-actions").innerHTML =
+    `<button class="b-act" onclick="fightAgain()">⚔️ Fight Again</button>`;
   if (won) {
     const reward = battle.isBoss
       ? 150 + rarityStars(battle.foe.genes) * 25
@@ -1878,6 +1909,58 @@ function showOfflineSummary(awayMin, coinsGained, statBefore, expReturned, eggsR
 }
 function closeOffline() { document.getElementById("offline-modal").classList.remove("show"); }
 
+// ====================== Notification badges ======================
+function eggsReadyCount() { return incubator.filter(e => Date.now() >= e.readyTime).length; }
+function updateBadges() {
+  const eggs = eggsReadyCount();
+  const total = eggs; // attention items worth a badge
+  const mb = document.getElementById("more-badge");
+  mb.style.display = total > 0 ? "block" : "none"; mb.textContent = total;
+  const ib = document.getElementById("incubator-badge");
+  ib.style.display = eggs > 0 ? "block" : "none"; ib.textContent = eggs;
+}
+
+// ====================== First-time tutorial ======================
+const TUTORIAL = [
+  { emoji: "🥚", title: "Welcome to Dragongotchi!", text: "Tap your egg to hatch it, then raise your very own dragon. Let's learn the basics!" },
+  { emoji: "🍖", title: "Care for your dragon", text: "Use Feed, Play, Sleep, Clean & Heal to keep its stats up. A ⚠️ badge warns you when something's low." },
+  { emoji: "🐲", title: "It evolves!", text: "How you raise it decides its element — mostly Play→Fire, Sleep→Ice, Pet→Storm, Feed→Nature. Keep every stat high for a secret Rainbow dragon!" },
+  { emoji: "⚔️", title: "Battle, breed & explore", text: "Earn coins in mini-games, battle wild dragons, breed stronger ones, and explore the World Map. Tap ☰ More for everything!" },
+  { emoji: "💾", title: "You're all set!", text: "Your game saves automatically. Back it up anytime in ⚙️ Settings. Have fun, dragon trainer!" },
+];
+let tutStep = 0;
+function startTutorial() {
+  tutStep = 0; renderTutorial();
+  document.getElementById("tutorial-modal").classList.add("show");
+}
+function renderTutorial() {
+  const s = TUTORIAL[tutStep];
+  document.getElementById("tut-emoji").textContent = s.emoji;
+  document.getElementById("tut-title").textContent = s.title;
+  document.getElementById("tut-text").textContent = s.text;
+  document.getElementById("tut-dots").textContent = TUTORIAL.map((_, i) => i === tutStep ? "●" : "○").join(" ");
+  document.getElementById("tut-next").textContent = tutStep === TUTORIAL.length - 1 ? "Let's play! 🎉" : "Next →";
+}
+function nextTutorial() {
+  if (tutStep < TUTORIAL.length - 1) { tutStep++; SFX.click(); renderTutorial(); }
+  else closeTutorial();
+}
+function closeTutorial() {
+  localStorage.setItem("dragongotchiSeenTutorial", "1");
+  document.getElementById("tutorial-modal").classList.remove("show");
+}
+
+// ====================== Fight Again ======================
+function fightAgain() {
+  if (!pet.hatched || !pet.alive) { closeBattle(); setMessage("You need a living dragon to battle!"); return; }
+  if (pet.energy < 20) { closeBattle(); setMessage("Too tired to battle! Let your dragon rest. 😪"); return; }
+  if (lastTeam) {
+    setupBoss = !!lastTeam.boss;
+    setupAllies = (lastTeam.allies || []).filter(i => i < dex.length);
+  } else { setupBoss = false; setupAllies = []; }
+  startBattle();
+}
+
 // ====================== Dragon-Dex (completion tracker) ======================
 function openDragonDex() {
   SFX.click();
@@ -2029,6 +2112,7 @@ function render() {
   document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
   document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
   renderEventBanner();
+  updateBadges();
 
   const stage = lifeStage();
   document.getElementById("pet-name").textContent = (pet.shiny ? "✨ " : "") + pet.name + " ✏️";
@@ -2269,6 +2353,8 @@ render();
 checkDailyBonus();
 const _eggsReady = incubator.filter(e => Date.now() >= e.readyTime).length;
 showOfflineSummary(_awayMin, coins - _coinsBefore, _statBefore, _expBefore && !expedition, _eggsReady);
+// first-time players get a quick guided intro
+if (localStorage.getItem("dragongotchiSeenTutorial") !== "1" && !pet.hatched) startTutorial();
 setInterval(tick, 3000);
 if (typeof requestAnimationFrame === "function") requestAnimationFrame(animateDragon);
 // browsers block audio until a user gesture — start the music on the first tap if enabled
