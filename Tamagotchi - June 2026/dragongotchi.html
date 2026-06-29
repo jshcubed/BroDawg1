@@ -193,6 +193,7 @@
     <button class="btn" id="btn-battle" onclick="openBattle()"><span class="ico">⚔️</span>Battle</button>
     <button class="btn" id="btn-shop"  onclick="openShop()"><span class="ico">🛒</span>Shop</button>
     <button class="btn" id="btn-dex"   onclick="openGallery()"><span class="ico">📖</span>Gallery</button>
+    <button class="btn" id="btn-quests" onclick="openQuests()"><span class="ico">📜</span>Quests</button>
     <button class="btn" id="btn-awards" onclick="openAwards()"><span class="ico">🏆</span>Awards</button>
     <button class="btn" id="btn-reset" onclick="confirmReset()"><span class="ico">🔄</span>Reset</button>
   </div>
@@ -266,6 +267,16 @@
     <div class="dex-progress" id="awards-progress"></div>
     <div id="awards-list"></div>
     <button class="close" onclick="closeAwards()">Close</button>
+  </div>
+</div>
+
+<!-- Quests modal -->
+<div class="modal-bg" id="quests-modal">
+  <div class="modal">
+    <h2>📜 Daily Quests</h2>
+    <div class="sub">Complete these for bonus 🪙 — they refresh each day!</div>
+    <div id="quests-list"></div>
+    <button class="close" onclick="closeQuests()">Close</button>
   </div>
 </div>
 
@@ -573,7 +584,7 @@ function petDragon() {
   if (!pet.alive || pet.sleeping) return;
   pet.happy = clamp(pet.happy + 3); pet.care.pet += 1;
   setMessage("Your dragon loves the attention! 💜");
-  SFX.pet(); mood("💜"); bounce(); save(); render();
+  SFX.pet(); mood("💜"); bounce(); questProgress("pet"); save(); render();
 }
 function hatch() {
   pet.hatched = true; pet.born = Date.now(); pet.lastTick = Date.now();
@@ -596,14 +607,14 @@ function feed() {
   if (pet.hunger >= 100) { setMessage("Your dragon is too full! 🤢"); mood("🤢"); return; }
   pet.hunger = clamp(pet.hunger + 25); pet.energy = clamp(pet.energy + 5); pet.care.feed += 1;
   if (Math.random() < 0.4) pet.poops = Math.min(4, pet.poops + 1);
-  setMessage("Nom nom! 🍖 Yummy."); SFX.feed(); mood("😋"); bounce(); save(); render();
+  setMessage("Nom nom! 🍖 Yummy."); SFX.feed(); mood("😋"); bounce(); questProgress("feed"); save(); render();
 }
 function playWith() {
   if (!guard()) { setMessage("Hatch or wake your dragon first!"); return; }
   if (pet.energy < 15) { setMessage("Too tired to play 😪 — let it sleep."); mood("😪"); return; }
   pet.happy = clamp(pet.happy + 25); pet.energy = clamp(pet.energy - 15);
   pet.hunger = clamp(pet.hunger - 8); pet.care.play += 1;
-  setMessage("Wheee! 🎮 So much fun!"); SFX.play(); mood("😄"); bounce(); save(); render();
+  setMessage("Wheee! 🎮 So much fun!"); SFX.play(); mood("😄"); bounce(); questProgress("play"); save(); render();
 }
 function toggleSleep() {
   if (!pet.hatched || !pet.alive) return;
@@ -616,13 +627,13 @@ function clean() {
   if (!pet.hatched || !pet.alive) return;
   if (pet.poops === 0) { setMessage("Already squeaky clean! ✨"); return; }
   pet.poops = 0; pet.happy = clamp(pet.happy + 5);
-  setMessage("All clean now! 🧹✨"); SFX.clean(); mood("✨"); save(); render();
+  setMessage("All clean now! 🧹✨"); SFX.clean(); mood("✨"); questProgress("clean"); save(); render();
 }
 function heal() {
   if (!pet.hatched || !pet.alive) return;
   if (pet.health >= 100) { setMessage("Your dragon is perfectly healthy! ❤️"); mood("❤️"); return; }
   pet.health = clamp(pet.health + 30); pet.care.heal += 1;
-  setMessage("Took its medicine 💊 Feeling better!"); SFX.heal(); mood("💊"); bounce(); save(); render();
+  setMessage("Took its medicine 💊 Feeling better!"); SFX.heal(); mood("💊"); bounce(); questProgress("heal"); save(); render();
 }
 function confirmReset() { if (confirm("Reset and start over with a new egg? (Coins & collection are kept)")) restart(); }
 function restart() {
@@ -755,7 +766,7 @@ function endGemGame() {
   stopGemGame();
   earnCoins(score);
   if (score >= 15) unlock("gem_pro");
-  checkRich();
+  checkRich(); questProgress("play_game");
   // a little happiness boost from playing
   if (pet.alive) { pet.happy = clamp(pet.happy + 10); pet.care.play += 1; save(); }
   document.getElementById("minigame-overlay").classList.remove("show");
@@ -827,7 +838,7 @@ function endMemoryGame() {
   const reward = Math.max(5, 30 - (moves - 6) * 2);
   earnCoins(reward);
   if (moves <= 8) unlock("memory_ace");
-  checkRich();
+  checkRich(); questProgress("play_game");
   if (pet.alive) { pet.happy = clamp(pet.happy + 12); pet.care.play += 1; save(); }
   document.getElementById("memory-sub").textContent = `🎉 Solved in ${moves} moves! Earned ${reward} 🪙`;
   mem = null;
@@ -913,34 +924,57 @@ function closeBreed() { document.getElementById("breed-modal").classList.remove(
 let battle = null;
 const FOE_NAMES = ["Grimscale", "Emberfang", "Frostclaw", "Stormwing", "Venomtail", "Bouldermaw", "Shadowhorn"];
 
+// Type advantage cycle: each beats the next, loses to the previous. Rainbow is neutral.
+const BEATS = { fire: "nature", nature: "shadow", shadow: "ice", ice: "storm", storm: "fire" };
+function typeMultiplier(attType, defType) {
+  if (!attType || !defType || attType === "rainbow" || defType === "rainbow") return 1;
+  if (BEATS[attType] === defType) return 1.5;   // super effective
+  if (BEATS[defType] === attType) return 0.66;  // not very effective
+  return 1;
+}
+
+// Signature special move per element
+const SPECIALS = {
+  fire:   { name: "Inferno",      mult: 1.8, effect: null,        emoji: "🔥" },
+  ice:    { name: "Frost Bite",   mult: 1.4, effect: "freeze",    emoji: "❄️" },
+  storm:  { name: "Thunderstrike",mult: 1.5, effect: "pierce",    emoji: "⚡" },
+  nature: { name: "Regrowth",     mult: 1.4, effect: "lifesteal", emoji: "🌿" },
+  shadow: { name: "Shadow Drain", mult: 1.5, effect: "lifesteal", emoji: "☠️" },
+  rainbow:{ name: "Prism Beam",   mult: 1.7, effect: "true",      emoji: "🌈" },
+};
+function specialFor(type) { return SPECIALS[type] || SPECIALS.fire; }
+
 function openBattle() {
   if (!pet.hatched || !pet.alive) { setMessage("You need a living dragon to battle!"); return; }
   if (pet.energy < 20) { setMessage("Too tired to battle! Let your dragon rest first. 😪"); return; }
   SFX.click();
+  questProgress("battle_any");
 
-  // generate a wild opponent roughly scaled to the player's gene strength
-  const lvl = geneScore(pet.genes);
   const drift = () => rnd(-3, 4);
   const foeGenes = { str: Math.max(3, Math.round(pet.genes.str + drift())),
                      def: Math.max(3, Math.round(pet.genes.def + drift())),
                      spd: Math.max(3, Math.round(pet.genes.spd + drift())),
                      hp:  Math.max(15, Math.round(pet.genes.hp + rnd(-5, 6))) };
   const foeType = ELEMENTAL_TYPES[rnd(0, ELEMENTAL_TYPES.length - 1)];
+  const youType = pet.type || "fire";
 
   battle = {
-    you:  { genes: pet.genes, hp: pet.genes.hp * 3, max: pet.genes.hp * 3, specials: 3, defending: false },
+    you:  { type: youType, genes: pet.genes, hp: pet.genes.hp * 3, max: pet.genes.hp * 3, specials: 3, defending: false, frozen: false },
     foe:  { name: FOE_NAMES[rnd(0, FOE_NAMES.length - 1)], type: foeType, genes: foeGenes,
-            hp: foeGenes.hp * 3, max: foeGenes.hp * 3, defending: false },
+            hp: foeGenes.hp * 3, max: foeGenes.hp * 3, specials: 2, defending: false, frozen: false },
     over: false,
   };
 
   document.getElementById("foe-emoji").textContent = TYPES[foeType].adult;
   document.getElementById("foe-name").textContent = battle.foe.name;
   document.getElementById("foe-stats").textContent = `${TYPES[foeType].name} · STR ${foeGenes.str} DEF ${foeGenes.def} SPD ${foeGenes.spd}`;
-  document.getElementById("you-emoji").textContent = pet.type ? TYPES[pet.type].adult : "🐲";
+  document.getElementById("you-emoji").textContent = TYPES[youType] ? TYPES[youType].adult : "🐲";
   document.getElementById("you-name").textContent = pet.name;
-  document.getElementById("you-stats").textContent = `STR ${pet.genes.str} DEF ${pet.genes.def} SPD ${pet.genes.spd}`;
-  setBattleLog("A wild " + battle.foe.name + " appears! Choose your move.");
+  const adv = typeMultiplier(youType, foeType);
+  const advNote = adv > 1 ? " — you have the type advantage! 💪" : adv < 1 ? " — foe resists your type! 😬" : "";
+  document.getElementById("you-stats").textContent =
+    `${TYPES[youType] ? TYPES[youType].name : "?"} · STR ${pet.genes.str} DEF ${pet.genes.def} SPD ${pet.genes.spd}`;
+  setBattleLog(`A wild ${battle.foe.name} (${TYPES[foeType].name}) appears!${advNote}`);
   renderBattle();
   document.getElementById("battle-modal").classList.add("show");
 
@@ -948,84 +982,118 @@ function openBattle() {
   if (foeGenes.spd > pet.genes.spd) {
     setBattleLog(battle.foe.name + " is faster and strikes first!");
     document.getElementById("battle-actions").innerHTML = "";
-    setTimeout(foeTurn, 900);
+    setTimeout(foeTurnStart, 1100);
   }
 }
 
 function setBattleLog(msg) { document.getElementById("battle-log").textContent = msg; }
 
+function actionsHTML() {
+  const sp = specialFor(battle.you.type);
+  return `<button class="b-act" onclick="playerMove('attack')">⚔️ Attack</button>
+     <button class="b-act" onclick="playerMove('special')" ${battle.you.specials <= 0 ? "disabled" : ""}>${sp.emoji} ${sp.name} (${battle.you.specials})</button>
+     <button class="b-act" onclick="playerMove('defend')">🛡️ Defend</button>`;
+}
+function showActions() { document.getElementById("battle-actions").innerHTML = battle.over ? "" : actionsHTML(); }
+function hideActions() { document.getElementById("battle-actions").innerHTML = ""; }
+
 function renderBattle() {
   document.getElementById("foe-hp").style.width = Math.max(0, battle.foe.hp / battle.foe.max * 100) + "%";
   document.getElementById("you-hp").style.width = Math.max(0, battle.you.hp / battle.you.max * 100) + "%";
-  const acts = document.getElementById("battle-actions");
-  if (battle.over) { acts.innerHTML = ""; return; }
-  acts.innerHTML =
-    `<button class="b-act" onclick="playerMove('attack')">⚔️ Attack</button>
-     <button class="b-act" onclick="playerMove('special')" ${battle.you.specials <= 0 ? "disabled" : ""}>🔥 Special (${battle.you.specials})</button>
-     <button class="b-act" onclick="playerMove('defend')">🛡️ Defend</button>`;
+  if (battle.over) hideActions();
 }
 
-function dmg(attacker, defender, mult) {
-  // dodge chance from speed difference
-  const dodge = Math.max(0, Math.min(0.35, (defender.genes.spd - attacker.genes.spd) * 0.03));
+// Resolve an attack from att -> def. `sig` is the special move object (or null for a basic attack).
+function resolveAttack(att, def, sig) {
+  const isTrue = sig && sig.effect === "true";
+  const dodge = isTrue ? 0 : Math.max(0, Math.min(0.35, (def.genes.spd - att.genes.spd) * 0.03));
   if (Math.random() < dodge) return { hit: false, amount: 0 };
-  let amount = Math.round((attacker.genes.str * (mult || 1) + rnd(0, 4)) - defender.genes.def / 2);
-  amount = Math.max(1, amount);
-  if (defender.defending) { amount = Math.round(amount / 2); defender.defending = false; }
-  return { hit: true, amount };
+  const mult = sig ? sig.mult : 1;
+  const pierce = sig && sig.effect === "pierce";
+  let amount = att.genes.str * mult + rnd(0, 4);
+  if (!pierce) amount -= def.genes.def / 2;
+  amount *= typeMultiplier(att.type, def.type);          // elemental advantage
+  amount = Math.max(1, Math.round(amount));
+  if (def.defending) { amount = Math.round(amount / 2); def.defending = false; }
+  const result = { hit: true, amount, heal: 0, freeze: false, eff: typeMultiplier(att.type, def.type) };
+  if (sig && sig.effect === "lifesteal") result.heal = Math.round(amount * 0.5);
+  if (sig && sig.effect === "freeze") result.freeze = Math.random() < 0.5;
+  return result;
 }
+
+function effNote(eff) { return eff > 1 ? " It's super effective! 🔥" : eff < 1 ? " It's not very effective… " : ""; }
 
 function playerMove(move) {
   if (!battle || battle.over) return;
+  hideActions();
   if (move === "defend") {
     battle.you.defending = true;
     SFX.clean();
     setBattleLog(pet.name + " braces for impact! 🛡️ (next hit halved)");
-    document.getElementById("battle-actions").innerHTML = "";
-    setTimeout(foeTurn, 900);
+    setTimeout(foeTurnStart, 950);
     return;
   }
-  const mult = move === "special" ? 1.7 : 1;
-  if (move === "special") { battle.you.specials--; SFX.evolve(); } else { SFX.play(); }
-  const r = dmg(battle.you, battle.foe, mult);
-  if (!r.hit) setBattleLog(battle.foe.name + " dodged your " + (move === "special" ? "special!" : "attack!"));
-  else { battle.foe.hp -= r.amount; setBattleLog(pet.name + (move === "special" ? " unleashes a special for " : " hits for ") + r.amount + "! 💥"); }
+  const sig = move === "special" ? specialFor(battle.you.type) : null;
+  if (sig) { battle.you.specials--; SFX.evolve(); } else { SFX.play(); }
+  const r = resolveAttack(battle.you, battle.foe, sig);
+  if (!r.hit) setBattleLog(battle.foe.name + " dodged your " + (sig ? sig.name + "!" : "attack!"));
+  else {
+    battle.foe.hp -= r.amount;
+    if (r.heal) { battle.you.hp = Math.min(battle.you.max, battle.you.hp + r.heal); }
+    if (r.freeze) battle.foe.frozen = true;
+    setBattleLog(`${pet.name} ${sig ? "casts " + sig.name + " for " : "hits for "}${r.amount}!${effNote(r.eff)}${r.heal ? " Drained " + r.heal + " HP. 💚" : ""}${r.freeze ? " The foe is frozen! ❄️" : ""}`);
+  }
   renderBattle();
-
-  if (battle.foe.hp <= 0) { return endBattle(true); }
-  document.getElementById("battle-actions").innerHTML = "";
-  setTimeout(foeTurn, 950);
+  if (battle.foe.hp <= 0) return endBattle(true);
+  setTimeout(foeTurnStart, 1000);
 }
 
-function foeTurn() {
+function playerTurnStart() {
   if (!battle || battle.over) return;
-  // simple AI: mostly attack, sometimes special, sometimes defend when low
+  if (battle.you.frozen) {
+    battle.you.frozen = false;
+    setBattleLog(pet.name + " is frozen solid and skips a turn! ❄️");
+    hideActions();
+    setTimeout(foeTurnStart, 1100);
+    return;
+  }
+  showActions();
+}
+
+function foeTurnStart() {
+  if (!battle || battle.over) return;
+  if (battle.foe.frozen) {
+    battle.foe.frozen = false;
+    setBattleLog(battle.foe.name + " is frozen and can't move! ❄️");
+    setTimeout(playerTurnStart, 1100);
+    return;
+  }
   const lowHP = battle.foe.hp < battle.foe.max * 0.3;
   const roll = Math.random();
   let move = "attack";
   if (lowHP && roll < 0.3) move = "defend";
-  else if (roll < 0.25) move = "special";
+  else if (roll < 0.3 && battle.foe.specials > 0) move = "special";
 
   if (move === "defend") {
     battle.foe.defending = true;
     setBattleLog(battle.foe.name + " takes a defensive stance. 🛡️");
-    renderBattle();
-    if (!battle.over) setTimeout(() => { renderBattle(); }, 300);
-    document.getElementById("battle-actions").innerHTML =
-      `<button class="b-act" onclick="playerMove('attack')">⚔️ Attack</button>
-       <button class="b-act" onclick="playerMove('special')" ${battle.you.specials <= 0 ? "disabled" : ""}>🔥 Special (${battle.you.specials})</button>
-       <button class="b-act" onclick="playerMove('defend')">🛡️ Defend</button>`;
+    setTimeout(playerTurnStart, 1000);
     return;
   }
-
-  const mult = move === "special" ? 1.6 : 1;
-  const r = dmg(battle.foe, battle.you, mult);
-  if (!r.hit) setBattleLog(pet.name + " nimbly dodged " + battle.foe.name + "'s attack!");
-  else { battle.you.hp -= r.amount; setBattleLog(battle.foe.name + (move === "special" ? " uses a special for " : " strikes for ") + r.amount + "! 😣"); SFX.heal(); }
+  const sig = move === "special" ? specialFor(battle.foe.type) : null;
+  if (sig) battle.foe.specials--;
+  const r = resolveAttack(battle.foe, battle.you, sig);
+  if (!r.hit) setBattleLog(pet.name + " nimbly dodged " + battle.foe.name + "'s " + (sig ? sig.name + "!" : "attack!"));
+  else {
+    battle.you.hp -= r.amount;
+    if (r.heal) battle.foe.hp = Math.min(battle.foe.max, battle.foe.hp + r.heal);
+    if (r.freeze) battle.you.frozen = true;
+    SFX.heal();
+    setBattleLog(`${battle.foe.name} ${sig ? "uses " + sig.name + " for " : "strikes for "}${r.amount}!${effNote(r.eff)}${r.freeze ? " You're frozen! ❄️" : ""}`);
+  }
   renderBattle();
-
-  if (battle.you.hp <= 0) { return endBattle(false); }
-  renderBattle();
+  if (battle.you.hp <= 0) return endBattle(false);
+  setTimeout(playerTurnStart, 1050);
 }
 
 function endBattle(won) {
@@ -1037,6 +1105,7 @@ function endBattle(won) {
     battleWins++; localStorage.setItem("dragongotchiBattleWins", String(battleWins));
     unlock("first_win");
     if (battleWins >= 10) unlock("champion");
+    questProgress("battle_win");
     if (pet.alive) { pet.energy = clamp(pet.energy - 20); pet.happy = clamp(pet.happy + 8); save(); }
     setBattleLog(`🏆 Victory! You defeated ${battle.foe.name} and earned ${reward} 🪙!`);
     SFX.coin();
@@ -1067,6 +1136,64 @@ function checkDailyBonus() {
   localStorage.setItem("dragongotchiStreak", String(streak));
   setTimeout(() => { toast(`🎁 Daily bonus! +${bonus} 🪙 (Day ${streak} streak)`); SFX.coin(); }, 400);
 }
+
+// ====================== Daily Quests ======================
+const QUEST_POOL = [
+  { id: "feed3",   type: "feed",       goal: 3, reward: 25, desc: "Feed your dragon 3 times" },
+  { id: "pet5",    type: "pet",        goal: 5, reward: 25, desc: "Pet your dragon 5 times" },
+  { id: "play2",   type: "play_game",  goal: 2, reward: 30, desc: "Play 2 mini-games" },
+  { id: "win2",    type: "battle_win", goal: 2, reward: 40, desc: "Win 2 battles" },
+  { id: "fight1",  type: "battle_any", goal: 1, reward: 20, desc: "Fight a battle" },
+  { id: "clean2",  type: "clean",      goal: 2, reward: 20, desc: "Clean up 2 times" },
+  { id: "heal1",   type: "heal",       goal: 1, reward: 15, desc: "Heal your dragon" },
+  { id: "play3",   type: "play",       goal: 3, reward: 25, desc: "Play with your dragon 3 times" },
+];
+let quests = JSON.parse(localStorage.getItem("dragongotchiQuests") || "null");
+function saveQuests() { localStorage.setItem("dragongotchiQuests", JSON.stringify(quests)); }
+
+function checkDailyQuests() {
+  const today = new Date().toDateString();
+  if (quests && quests.date === today) return;
+  // pick 3 random distinct quests for today
+  const pool = QUEST_POOL.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  quests = { date: today, list: pool.slice(0, 3).map(q => ({ ...q, prog: 0, done: false })) };
+  saveQuests();
+}
+function questProgress(type, amount) {
+  if (!quests) return;
+  amount = amount || 1;
+  let changed = false;
+  quests.list.forEach(q => {
+    if (q.done || q.type !== type) return;
+    q.prog = Math.min(q.goal, q.prog + amount);
+    changed = true;
+    if (q.prog >= q.goal) {
+      q.done = true;
+      earnCoins(q.reward); checkRich();
+      toast(`📜 Quest complete: ${q.desc}! +${q.reward} 🪙`);
+      SFX.coin();
+    }
+  });
+  if (changed) { saveQuests(); render(); }
+}
+function questsRemaining() { return quests ? quests.list.filter(q => !q.done).length : 0; }
+
+function openQuests() {
+  SFX.click();
+  document.getElementById("quests-list").innerHTML = quests.list.map(q => {
+    const pct = Math.round(q.prog / q.goal * 100);
+    return `<div class="shop-item" style="${q.done ? "opacity:0.6;" : ""}">
+      <span class="emoji">${q.done ? "✅" : "📜"}</span>
+      <span class="info"><b>${q.desc}</b>
+        <small>${q.prog}/${q.goal} · reward 🪙 ${q.reward}</small>
+        <div class="bar" style="margin-top:4px;"><div style="width:${pct}%; background:#2ecc71;"></div></div>
+      </span>
+    </div>`;
+  }).join("");
+  document.getElementById("quests-modal").classList.add("show");
+}
+function closeQuests() { document.getElementById("quests-modal").classList.remove("show"); }
 
 // ====================== Gallery ======================
 function openGallery() {
@@ -1155,6 +1282,7 @@ function render() {
 
 // ====================== Boot ======================
 if (muted) document.getElementById("mute-btn").textContent = "🔇";
+checkDailyQuests();
 tick();
 render();
 checkDailyBonus();
