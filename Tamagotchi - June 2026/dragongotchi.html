@@ -136,9 +136,11 @@
     <span>🐉 <b>DRAGONGOTCHI</b></span>
     <span class="topright">
       <span class="coins">🪙 <span id="coin-count">0</span></span>
+      <button class="mute-btn" id="music-btn" onclick="toggleMusic()">🎵</button>
       <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
     </span>
   </div>
+  <div id="event-banner" style="display:none; text-align:center; background:rgba(0,0,0,0.3); color:#ffe; border-radius:10px; padding:0.35rem 0.6rem; margin-bottom:0.6rem; font-size:0.8rem; font-weight:700;"></div>
 
   <div class="screen">
     <div class="name-age">
@@ -204,6 +206,8 @@
     <div class="buttons" style="margin-top:0;">
       <button class="btn" onclick="closeMore(); openGallery()"><span class="ico">📖</span>Gallery</button>
       <button class="btn" onclick="closeMore(); openDragonDex()"><span class="ico">🐉</span>Dragon-Dex</button>
+      <button class="btn" onclick="closeMore(); openIncubator()"><span class="ico">🥚</span>Incubator</button>
+      <button class="btn" onclick="closeMore(); openWorldMap()"><span class="ico">🌍</span>World Map</button>
       <button class="btn" onclick="closeMore(); openQuests()"><span class="ico">📜</span>Quests</button>
       <button class="btn" onclick="closeMore(); openExpeditions()"><span class="ico">🗺️</span>Expedition</button>
       <button class="btn" onclick="closeMore(); openJobs()"><span class="ico">💼</span>Jobs</button>
@@ -213,6 +217,25 @@
       <button class="btn" onclick="closeMore(); confirmReset()"><span class="ico">🔄</span>Reset</button>
     </div>
     <button class="close" onclick="closeMore()">Close</button>
+  </div>
+</div>
+
+<!-- Incubator modal -->
+<div class="modal-bg" id="incubator-modal">
+  <div class="modal">
+    <h2>🥚 Egg Incubator</h2>
+    <div class="sub">Incubate up to 3 eggs at once so you always have a new dragon on the way!</div>
+    <div id="incubator-body"></div>
+  </div>
+</div>
+
+<!-- World Map modal -->
+<div class="modal-bg" id="worldmap-modal">
+  <div class="modal">
+    <h2>🌍 World Map</h2>
+    <div class="sub">Travel to a region to battle its native dragons. Unlock new lands by winning battles!</div>
+    <div id="worldmap-body"></div>
+    <button class="close" onclick="closeWorldMap()">Close</button>
   </div>
 </div>
 
@@ -394,12 +417,18 @@ function saveDecor() { localStorage.setItem("dragongotchiDecor", JSON.stringify(
 
 let prestige = parseInt(localStorage.getItem("dragongotchiPrestige") || "0");
 let job = JSON.parse(localStorage.getItem("dragongotchiJob") || "null"); // { dexIndex, ratePerMin, lastTick }
+let incubator = JSON.parse(localStorage.getItem("dragongotchiIncubator") || "[]"); // [{readyTime, genes, type, shiny, label}]
+let currentRegion = localStorage.getItem("dragongotchiRegion") || "home";
+let musicOn = localStorage.getItem("dragongotchiMusic") === "1";
 function savePrestige() { localStorage.setItem("dragongotchiPrestige", String(prestige)); }
 function saveJob() { if (job) localStorage.setItem("dragongotchiJob", JSON.stringify(job)); else localStorage.removeItem("dragongotchiJob"); }
+function saveIncubator() { localStorage.setItem("dragongotchiIncubator", JSON.stringify(incubator)); }
 
-// give coins and credit lifetime total — prestige adds a permanent multiplier
+// give coins and credit lifetime total — prestige + active event add multipliers
 function earnCoins(n) {
-  n = Math.round(n * (1 + 0.1 * prestige));
+  const ev = currentEvent();
+  const mult = 1 + 0.1 * prestige + (ev ? ev.coinMult : 0);
+  n = Math.round(n * mult);
   coins += n; coinsEarned += n; saveCoins(); saveEarned();
 }
 
@@ -1102,16 +1131,19 @@ function startBattle() {
   // build the foe
   const avg = k => Math.round(team.reduce((s, f) => s + f.genes[k], 0) / team.length);
   let foe;
+  const region = getRegion();
   if (setupBoss) {
     const b = BOSSES[rnd(0, BOSSES.length - 1)];
+    const bossType = region.type || b.type;           // boss takes on the region's element
     const fg = { str: avg("str") + 4, def: avg("def") + 3, spd: avg("spd") + 2, hp: avg("hp") + 10 };
-    foe = { name: b.name, emoji: b.emoji, type: b.type, genes: fg,
+    foe = { name: b.name, emoji: b.emoji, type: bossType, genes: fg,
             hp: fg.hp * 9, max: fg.hp * 9, specials: 6, defending: false, frozen: false, isBoss: true };
   } else {
     const drift = () => rnd(-3, 4);
     const fg = { str: Math.max(3, avg("str") + drift()), def: Math.max(3, avg("def") + drift()),
                  spd: Math.max(3, avg("spd") + drift()), hp: Math.max(15, avg("hp") + rnd(-5, 6)) };
-    const ft = ELEMENTAL_TYPES[rnd(0, ELEMENTAL_TYPES.length - 1)];
+    // foes are the region's native element (random in the starter meadow)
+    const ft = region.type || ELEMENTAL_TYPES[rnd(0, ELEMENTAL_TYPES.length - 1)];
     foe = { name: FOE_NAMES[rnd(0, FOE_NAMES.length - 1)], emoji: TYPES[ft].adult, type: ft, genes: fg,
             hp: fg.hp * 3, max: fg.hp * 3, specials: 2, defending: false, frozen: false, isBoss: false };
   }
@@ -1507,6 +1539,159 @@ function currentSeason() {
   return { name: "Autumn", emoji: "🍂", bg: "linear-gradient(180deg,#ffd9a8 0%,#ffeccf 100%)" };
 }
 
+// ====================== Events & Holidays ======================
+function currentEvent() {
+  const d = new Date(), m = d.getMonth(), day = d.getDate();
+  if (m === 9) return { name: "Spooky Hollow", emoji: "🎃", type: "shadow", coinMult: 0.25, egg: "Pumpkin Egg" };
+  if (m === 11 && day >= 18) return { name: "Winter Festival", emoji: "🎄", type: "ice", coinMult: 0.3, egg: "Frosted Egg" };
+  if (m === 1 && day >= 10 && day <= 16) return { name: "Hearts Day", emoji: "💝", type: "storm", coinMult: 0.25, egg: "Love Egg" };
+  if (m >= 5 && m <= 7) return { name: "Summer Festival", emoji: "🏖️", type: "fire", coinMult: 0.2, egg: "Sunny Egg" };
+  if (m >= 2 && m <= 4) return { name: "Spring Bloom", emoji: "🌷", type: "nature", coinMult: 0.2, egg: "Blossom Egg" };
+  return null;
+}
+function renderEventBanner() {
+  const ev = currentEvent();
+  const el = document.getElementById("event-banner");
+  if (ev) {
+    el.style.display = "block";
+    el.textContent = `${ev.emoji} ${ev.name} is live! +${Math.round(ev.coinMult * 100)}% coins · special ${ev.egg} in the Incubator`;
+  } else el.style.display = "none";
+}
+
+// ====================== Background music ======================
+const MELODY = [523,0,659,784, 880,784,659,587, 523,0,587,659, 523,440,392,0,
+                523,659,784,1047, 880,784,659,784, 587,659,523,440, 523,0,0,0];
+let musicTimer = null, musicStep = 0;
+function musicTone(freq, dur) {
+  if (!musicOn || !freq) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = "triangle"; o.frequency.value = freq;
+    g.gain.value = 0.05;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.22));
+    o.stop(audioCtx.currentTime + (dur || 0.22));
+  } catch (e) {}
+}
+function startMusic() {
+  stopMusic();
+  if (!musicOn) return;
+  musicTimer = setInterval(() => { musicTone(MELODY[musicStep % MELODY.length], 0.22); musicStep++; }, 260);
+}
+function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; }
+function toggleMusic() {
+  musicOn = !musicOn;
+  localStorage.setItem("dragongotchiMusic", musicOn ? "1" : "0");
+  document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
+  if (musicOn) startMusic(); else stopMusic();
+}
+
+// ====================== Egg Incubator ======================
+const EGG_TYPES = [
+  { id: "basic",   name: "Basic Egg",   cost: 30, mins: 3, bonus: 0, shinyChance: 0.03 },
+  { id: "premium", name: "Premium Egg", cost: 90, mins: 6, bonus: 3, shinyChance: 0.12 },
+];
+function openIncubator() { SFX.click(); renderIncubator(); document.getElementById("incubator-modal").classList.add("show"); }
+function closeIncubator() { document.getElementById("incubator-modal").classList.remove("show"); }
+function boostGenes(g, b) { return { str: g.str + b, def: g.def + b, spd: g.spd + b, hp: g.hp + b * 2 }; }
+function startEgg(eggId) {
+  if (incubator.length >= 3) { setMessage("All 3 incubator slots are full!"); return; }
+  const ev = currentEvent();
+  const def = eggId === "event" && ev
+    ? { id: "event", name: ev.egg, cost: 120, mins: 5, bonus: 2, shinyChance: 0.15, type: ev.type }
+    : EGG_TYPES.find(e => e.id === eggId);
+  if (!def || coins < def.cost) return;
+  coins -= def.cost; saveCoins();
+  incubator.push({
+    readyTime: Date.now() + def.mins * 60000,
+    genes: boostGenes(randomGenes(), def.bonus),
+    type: def.type || null,
+    shiny: Math.random() < def.shinyChance,
+    label: def.name,
+  });
+  saveIncubator(); SFX.coin(); renderIncubator(); render();
+}
+function hatchEgg(i) {
+  const egg = incubator[i];
+  if (!egg || Date.now() < egg.readyTime) return;
+  if (pet.hatched && pet.alive && !confirm("Hatching this egg replaces your current dragon. Continue?")) return;
+  pet = freshPet({ born: Date.now(), lastTick: Date.now(), genes: egg.genes, shiny: egg.shiny, heritage: egg.type ? [egg.type] : null });
+  save();
+  incubator.splice(i, 1); saveIncubator();
+  document.getElementById("death-overlay").classList.remove("show");
+  closeIncubator();
+  setMessage(`A new ${egg.label} hatched into an egg — tap it to hatch! 🥚`);
+  render();
+}
+function renderIncubator() {
+  const ev = currentEvent();
+  let html = "";
+  incubator.forEach((egg, i) => {
+    const remain = Math.max(0, egg.readyTime - Date.now());
+    const ready = remain <= 0;
+    const mm = Math.floor(remain / 60000), ss = Math.floor((remain % 60000) / 1000);
+    html += `<div class="shop-item">
+      <span class="emoji">${ready ? "🐣" : "🥚"}</span>
+      <span class="info"><b>${egg.label}${egg.shiny ? " ✨" : ""}</b>
+        <small>${ready ? "Ready to hatch!" : "Hatches in " + mm + "m " + (ss < 10 ? "0" : "") + ss + "s"}</small></span>
+      ${ready ? `<button class="b-act" onclick="hatchEgg(${i})">Hatch</button>` : ""}
+    </div>`;
+  });
+  if (incubator.length < 3) {
+    html += `<div class="dex-progress" style="margin:0.6rem 0 0.4rem;">Start a new egg (${incubator.length}/3 slots):</div>`;
+    EGG_TYPES.forEach(e => {
+      html += `<div class="shop-item">
+        <span class="emoji">🥚</span>
+        <span class="info"><b>${e.name}</b><small>${e.mins} min · ${e.bonus ? "+" + e.bonus + " genes · " : ""}${Math.round(e.shinyChance*100)}% shiny</small></span>
+        <button class="b-act" ${coins < e.cost ? "disabled" : ""} onclick="startEgg('${e.id}')">🪙 ${e.cost}</button>
+      </div>`;
+    });
+    if (ev) {
+      html += `<div class="shop-item" style="outline:2px solid #ffd700;">
+        <span class="emoji">${ev.emoji}</span>
+        <span class="info"><b>${ev.egg} (Event!)</b><small>5 min · ${TYPES[ev.type].name}-type · 15% shiny</small></span>
+        <button class="b-act" ${coins < 120 ? "disabled" : ""} onclick="startEgg('event')">🪙 120</button>
+      </div>`;
+    }
+  }
+  html += `<button class="close" onclick="closeIncubator()" style="margin-top:0.5rem;">Close</button>`;
+  document.getElementById("incubator-body").innerHTML = html;
+}
+
+// ====================== World Map ======================
+const REGIONS = [
+  { id: "home",   name: "Hatchling Meadow", emoji: "🌿", type: null,     wins: 0 },
+  { id: "ember",  name: "Ember Peaks",      emoji: "🌋", type: "fire",   wins: 2 },
+  { id: "frost",  name: "Frost Tundra",     emoji: "🏔️", type: "ice",    wins: 5 },
+  { id: "storm",  name: "Storm Isles",      emoji: "⛈️", type: "storm",  wins: 9 },
+  { id: "vale",   name: "Verdant Vale",     emoji: "🌳", type: "nature", wins: 14 },
+  { id: "depths", name: "Shadow Depths",    emoji: "🕳️", type: "shadow", wins: 20 },
+];
+function regionUnlocked(r) { return battleWins >= r.wins; }
+function getRegion() { return REGIONS.find(r => r.id === currentRegion) || REGIONS[0]; }
+function openWorldMap() { SFX.click(); renderWorldMap(); document.getElementById("worldmap-modal").classList.add("show"); }
+function closeWorldMap() { document.getElementById("worldmap-modal").classList.remove("show"); }
+function renderWorldMap() {
+  document.getElementById("worldmap-body").innerHTML = REGIONS.map(r => {
+    const unlocked = regionUnlocked(r);
+    const here = r.id === currentRegion;
+    return `<div class="shop-item" ${unlocked ? `onclick="travelTo('${r.id}')" style="cursor:pointer; outline:${here ? "2px solid #2ecc71" : "none"};"` : 'style="opacity:0.45;"'}>
+      <span class="emoji">${r.emoji}</span>
+      <span class="info"><b>${r.name}${here ? " 📍" : ""}</b>
+        <small>${r.type ? TYPES[r.type].name + "-type dragons" : "All types"} · ${unlocked ? (here ? "You are here" : "Tap to travel") : "🔒 Win " + r.wins + " battles"}</small></span>
+    </div>`;
+  }).join("");
+}
+function travelTo(id) {
+  const r = REGIONS.find(x => x.id === id);
+  if (!r || !regionUnlocked(r)) return;
+  currentRegion = id; localStorage.setItem("dragongotchiRegion", id);
+  SFX.click(); setMessage(`Traveled to ${r.emoji} ${r.name}!`);
+  renderWorldMap(); render();
+}
+
 // ====================== Dragon-Dex (completion tracker) ======================
 function openDragonDex() {
   SFX.click();
@@ -1656,6 +1841,8 @@ function closeGallery() { document.getElementById("gallery-modal").classList.rem
 function render() {
   document.getElementById("coin-count").textContent = coins;
   document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
+  document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
+  renderEventBanner();
 
   const stage = lifeStage();
   document.getElementById("pet-name").textContent = (pet.shiny ? "✨ " : "") + pet.name + " ✏️";
@@ -1862,6 +2049,7 @@ function animateDragon(t) {
 
 // ====================== Boot ======================
 if (muted) document.getElementById("mute-btn").textContent = "🔇";
+document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
 checkDailyQuests();
 checkExpedition();
 tick();
@@ -1869,6 +2057,11 @@ render();
 checkDailyBonus();
 setInterval(tick, 3000);
 if (typeof requestAnimationFrame === "function") requestAnimationFrame(animateDragon);
+// browsers block audio until a user gesture — start the music on the first tap if enabled
+document.addEventListener("click", function startMusicOnce() {
+  if (musicOn) startMusic();
+  document.removeEventListener("click", startMusicOnce);
+}, { once: true });
 </script>
 </body>
 </html>
