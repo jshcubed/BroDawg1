@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Dragongotchi 🐉</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#ff7b54" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Dragongotchi" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -168,6 +176,7 @@
     <span>🐉 <b>DRAGONGOTCHI</b></span>
     <span class="topright">
       <span class="coins">🪙 <span id="coin-count">0</span></span>
+      <button class="mute-btn" id="install-btn" onclick="installApp()" style="display:none; background:#2ecc71;">⬇️ Install</button>
       <button class="mute-btn" id="music-btn" onclick="toggleMusic()">🎵</button>
       <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊</button>
     </span>
@@ -2362,6 +2371,34 @@ document.addEventListener("click", function startMusicOnce() {
   if (musicOn) startMusic();
   document.removeEventListener("click", startMusicOnce);
 }, { once: true });
+
+// ====================== PWA: service worker + install ======================
+let deferredInstall = null;
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById("install-btn").style.display = "inline-block";
+});
+function installApp() {
+  if (!deferredInstall) {
+    setMessage("To install: use your browser's menu → 'Add to Home Screen'. 📲");
+    return;
+  }
+  deferredInstall.prompt();
+  deferredInstall.userChoice.finally(() => {
+    deferredInstall = null;
+    document.getElementById("install-btn").style.display = "none";
+  });
+}
+window.addEventListener("appinstalled", () => {
+  document.getElementById("install-btn").style.display = "none";
+  setMessage("Dragongotchi installed! 🎉 Find it on your home screen.");
+});
 </script>
 </body>
 </html>
