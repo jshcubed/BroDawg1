@@ -237,9 +237,52 @@
       <button class="btn" onclick="closeMore(); openBossRaid()"><span class="ico">👹</span>Boss Raid</button>
       <button class="btn" onclick="closeMore(); openAwards()"><span class="ico">🏆</span>Awards</button>
       <button class="btn" onclick="closeMore(); openPrestige()"><span class="ico">✨</span>Prestige</button>
+      <button class="btn" onclick="closeMore(); openHelp()"><span class="ico">❓</span>Help</button>
+      <button class="btn" onclick="closeMore(); openSettings()"><span class="ico">⚙️</span>Settings</button>
       <button class="btn" onclick="closeMore(); confirmReset()"><span class="ico">🔄</span>Reset</button>
     </div>
     <button class="close" onclick="closeMore()">Close</button>
+  </div>
+</div>
+
+<!-- Offline progress summary modal -->
+<div class="modal-bg" id="offline-modal">
+  <div class="modal">
+    <h2>👋 Welcome back!</h2>
+    <div id="offline-body"></div>
+    <button class="close" onclick="closeOffline()">Let's go!</button>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settings-modal">
+  <div class="modal">
+    <h2>⚙️ Settings</h2>
+    <div style="margin-bottom:0.75rem;">
+      <label style="display:block; color:#cde; font-size:0.8rem; margin-bottom:0.25rem;">🎵 Music volume</label>
+      <input type="range" id="music-vol" min="0" max="100" style="width:100%;" oninput="setMusicVol(this.value)">
+      <label style="display:block; color:#cde; font-size:0.8rem; margin:0.5rem 0 0.25rem;">🔊 Sound effects volume</label>
+      <input type="range" id="sfx-vol" min="0" max="100" style="width:100%;" oninput="setSfxVol(this.value)">
+    </div>
+    <div class="dex-progress" style="margin:0.75rem 0 0.4rem;">💾 Save Data</div>
+    <div class="sub" style="margin-bottom:0.5rem;">Back up your game! Copy this code somewhere safe, or paste one to restore.</div>
+    <textarea id="save-code" readonly style="width:100%; height:60px; border-radius:8px; background:#0f0f1a; color:#9ad; border:1px solid #345; font-size:0.7rem; padding:0.4rem;" placeholder="Tap 'Export' to generate your save code…"></textarea>
+    <div style="display:flex; gap:0.5rem; margin:0.5rem 0;">
+      <button class="b-act" style="flex:1;" onclick="exportSave()">⬆️ Export</button>
+      <button class="b-act" style="flex:1; background:#3498db;" onclick="copySave()">📋 Copy</button>
+    </div>
+    <textarea id="import-code" style="width:100%; height:50px; border-radius:8px; background:#0f0f1a; color:#fff; border:1px solid #345; font-size:0.7rem; padding:0.4rem;" placeholder="Paste a save code here to restore…"></textarea>
+    <button class="b-act" style="width:100%; margin-top:0.5rem; background:#9b59b6;" onclick="importSave()">⬇️ Import &amp; Restore</button>
+    <button class="close" onclick="closeSettings()">Close</button>
+  </div>
+</div>
+
+<!-- Help / legend modal -->
+<div class="modal-bg" id="help-modal">
+  <div class="modal">
+    <h2>❓ How to Play</h2>
+    <div id="help-body" style="font-size:0.82rem; color:#dde; line-height:1.5;"></div>
+    <button class="close" onclick="closeHelp()">Got it!</button>
   </div>
 </div>
 
@@ -443,6 +486,16 @@ let job = JSON.parse(localStorage.getItem("dragongotchiJob") || "null"); // { de
 let incubator = JSON.parse(localStorage.getItem("dragongotchiIncubator") || "[]"); // [{readyTime, genes, type, shiny, label}]
 let currentRegion = localStorage.getItem("dragongotchiRegion") || "home";
 let musicOn = localStorage.getItem("dragongotchiMusic") === "1";
+let sfxVol = parseFloat(localStorage.getItem("dragongotchiSfxVol") || "1");
+let musicVol = parseFloat(localStorage.getItem("dragongotchiMusicVol") || "1");
+
+// compact number formatting: 1250 -> "1,250", 12500 -> "12.5K", 1.2M
+function fmt(n) {
+  n = Math.round(n);
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M";
+  if (n >= 1e4) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + "K";
+  return n.toLocaleString();
+}
 function savePrestige() { localStorage.setItem("dragongotchiPrestige", String(prestige)); }
 function saveJob() { if (job) localStorage.setItem("dragongotchiJob", JSON.stringify(job)); else localStorage.removeItem("dragongotchiJob"); }
 function saveIncubator() { localStorage.setItem("dragongotchiIncubator", JSON.stringify(incubator)); }
@@ -516,7 +569,7 @@ function tone(freq, dur, type, vol) {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = type || "square"; o.frequency.value = freq;
-    g.gain.value = vol || 0.07;
+    g.gain.value = (vol || 0.07) * sfxVol;
     o.connect(g); g.connect(audioCtx.destination);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.12));
@@ -1626,7 +1679,7 @@ function musicTone(freq, dur) {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = "triangle"; o.frequency.value = freq;
-    g.gain.value = 0.05;
+    g.gain.value = 0.05 * musicVol;
     o.connect(g); g.connect(audioCtx.destination);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.22));
@@ -1749,6 +1802,81 @@ function travelTo(id) {
   SFX.click(); setMessage(`Traveled to ${r.emoji} ${r.name}!`);
   renderWorldMap(); render();
 }
+
+// ====================== Settings + Save data ======================
+function openSettings() {
+  SFX.click();
+  document.getElementById("music-vol").value = Math.round(musicVol * 100);
+  document.getElementById("sfx-vol").value = Math.round(sfxVol * 100);
+  document.getElementById("save-code").value = "";
+  document.getElementById("import-code").value = "";
+  document.getElementById("settings-modal").classList.add("show");
+}
+function closeSettings() { document.getElementById("settings-modal").classList.remove("show"); }
+function setMusicVol(v) { musicVol = v / 100; localStorage.setItem("dragongotchiMusicVol", String(musicVol)); }
+function setSfxVol(v) { sfxVol = v / 100; localStorage.setItem("dragongotchiSfxVol", String(sfxVol)); SFX.click(); }
+
+function exportSave() {
+  const data = {};
+  Object.keys(localStorage).forEach(k => { if (k.startsWith("dragongotchi")) data[k] = localStorage.getItem(k); });
+  const code = btoa(encodeURIComponent(JSON.stringify(data)));
+  document.getElementById("save-code").value = code;
+  setMessage("Save code generated — copy it somewhere safe! 💾");
+}
+function copySave() {
+  const ta = document.getElementById("save-code");
+  if (!ta.value) exportSave();
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  if (navigator.clipboard) { try { navigator.clipboard.writeText(ta.value); } catch (e) {} }
+  setMessage("Save code copied to clipboard! 📋");
+}
+function importSave() {
+  const code = document.getElementById("import-code").value.trim();
+  if (!code) return;
+  if (!confirm("Importing will OVERWRITE your current game with the pasted save. Continue?")) return;
+  try {
+    const data = JSON.parse(decodeURIComponent(atob(code)));
+    if (!data || typeof data !== "object" || !data.dragongotchi) throw new Error("bad");
+    Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+    location.reload();
+  } catch (e) {
+    alert("That doesn't look like a valid Dragongotchi save code.");
+  }
+}
+
+// ====================== Help / legend ======================
+function openHelp() {
+  SFX.click();
+  const cycle = "🔥 Fire → 🌿 Nature → ☠️ Shadow → ❄️ Ice → ⚡ Storm → back to 🔥 Fire";
+  document.getElementById("help-body").innerHTML = `
+    <p><b>🎯 Goal:</b> Raise dragons, evolve them into elemental types, breed stronger ones, and collect them all!</p>
+    <p><b>🍖 Care:</b> Keep Hunger, Happy, Energy &amp; Health up. Neglect them and health drops — a ⚠️ badge warns you.</p>
+    <p><b>🧬 Genes:</b> STR (attack), DEF (defense), SPD (speed/dodge), HP (health). More = a ⭐ rarer dragon. Genes pass to babies when you breed.</p>
+    <p><b>🐲 Evolving:</b> How you raise it decides its type — mostly Play→Fire, Sleep→Ice, Pet→Storm, Feed→Nature, Neglect→Shadow. Keep every stat high for the secret 🌈 Rainbow!</p>
+    <p><b>⚔️ Battle type chart</b> (super-effective does 1.5× damage):<br>${cycle}</p>
+    <p><b>💡 Tips:</b> Earn 🪙 in mini-games, jobs &amp; expeditions. Travel the World Map to hunt specific types. Back up your game in ⚙️ Settings!</p>`;
+  document.getElementById("help-modal").classList.add("show");
+}
+function closeHelp() { document.getElementById("help-modal").classList.remove("show"); }
+
+// ====================== Offline progress summary ======================
+function showOfflineSummary(awayMin, coinsGained, statBefore, expReturned, eggsReady) {
+  if (awayMin < 5) return; // only worth showing after a real break
+  const h = Math.floor(awayMin / 60), m = Math.floor(awayMin % 60);
+  const timeStr = (h ? h + "h " : "") + m + "m";
+  const rows = [`<div class="dex-progress">You were away for ${timeStr}.</div>`];
+  if (coinsGained > 0) rows.push(`<div class="shop-item"><span class="emoji">🪙</span><span class="info"><b>+${fmt(coinsGained)} coins</b><small>from jobs, expeditions &amp; daily bonus</small></span></div>`);
+  if (expReturned) rows.push(`<div class="shop-item"><span class="emoji">🗺️</span><span class="info"><b>Expedition returned!</b><small>Your dragon is back home</small></span></div>`);
+  if (eggsReady > 0) rows.push(`<div class="shop-item"><span class="emoji">🐣</span><span class="info"><b>${eggsReady} egg${eggsReady > 1 ? "s" : ""} ready to hatch</b><small>Check the Incubator</small></span></div>`);
+  if (pet.hatched && pet.alive) {
+    const dh = Math.round(statBefore.hunger - pet.hunger), dhap = Math.round(statBefore.happy - pet.happy);
+    if (dh > 5 || dhap > 5) rows.push(`<div class="shop-item"><span class="emoji">🍖</span><span class="info"><b>Your dragon missed you</b><small>Hunger and happiness dropped — give it some love!</small></span></div>`);
+  }
+  document.getElementById("offline-body").innerHTML = rows.join("");
+  document.getElementById("offline-modal").classList.add("show");
+}
+function closeOffline() { document.getElementById("offline-modal").classList.remove("show"); }
 
 // ====================== Dragon-Dex (completion tracker) ======================
 function openDragonDex() {
@@ -1897,7 +2025,7 @@ function closeGallery() { document.getElementById("gallery-modal").classList.rem
 
 // ====================== Render ======================
 function render() {
-  document.getElementById("coin-count").textContent = coins;
+  document.getElementById("coin-count").textContent = fmt(coins);
   document.getElementById("mute-btn").textContent = muted ? "🔇" : "🔊";
   document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
   renderEventBanner();
@@ -2129,11 +2257,18 @@ function animateDragon(t) {
 // ====================== Boot ======================
 if (muted) document.getElementById("mute-btn").textContent = "🔇";
 document.getElementById("music-btn").textContent = musicOn ? "🎵" : "🔇";
+// snapshot state before we catch up, so we can summarize what happened while away
+const _awayMin = pet.hatched ? (Date.now() - pet.lastTick) / 60000 : 0;
+const _coinsBefore = coins;
+const _statBefore = { hunger: pet.hunger, happy: pet.happy, energy: pet.energy, health: pet.health };
+const _expBefore = !!expedition;
 checkDailyQuests();
 checkExpedition();
 tick();
 render();
 checkDailyBonus();
+const _eggsReady = incubator.filter(e => Date.now() >= e.readyTime).length;
+showOfflineSummary(_awayMin, coins - _coinsBefore, _statBefore, _expBefore && !expedition, _eggsReady);
 setInterval(tick, 3000);
 if (typeof requestAnimationFrame === "function") requestAnimationFrame(animateDragon);
 // browsers block audio until a user gesture — start the music on the first tap if enabled
