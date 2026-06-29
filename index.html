@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Josh's Arcade 🕹️</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(160deg, #1a1040 0%, #2a1a5a 45%, #0d0820 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 2rem 1rem 3rem;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2.5rem; }
+  h1 {
+    font-size: 2.6rem;
+    background: linear-gradient(90deg, #ff7b54, #ffd700, #ff7eb3, #4ecdc4);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+  }
+  .tagline { color: #b0a8d0; font-size: 1rem; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+  .card {
+    display: block;
+    text-decoration: none;
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 1.5rem;
+    transition: transform 0.15s, background 0.2s, border-color 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-5px);
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.3);
+  }
+  .card .emoji { font-size: 3rem; display: block; margin-bottom: 0.75rem; }
+  .card h2 { font-size: 1.25rem; margin-bottom: 0.4rem; }
+  .card p { color: #c8c0e0; font-size: 0.85rem; line-height: 1.4; }
+  .card .play {
+    display: inline-block; margin-top: 0.9rem;
+    background: #ff7b54; color: #fff; font-weight: 700;
+    padding: 0.4rem 1rem; border-radius: 999px; font-size: 0.8rem;
+  }
+
+  footer { text-align: center; margin-top: 3rem; color: #8880a8; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🕹️ Josh's Arcade</h1>
+    <p class="tagline">A collection of games I built with Claude Code. Tap one to play!</p>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="Tamagotchi%20-%20June%202026/dragongotchi.html">
+      <span class="emoji">🐉</span>
+      <h2>Dragongotchi</h2>
+      <p>Raise a virtual dragon! Feed it, play mini-games for coins, shop for treats, and watch it evolve into one of 5 elemental types.</p>
+      <span class="play">▶ Play</span>
+    </a>
+
+    <a class="card" href="Texas%20Hold%20Em%20-%20June%202026/texas-holdem.html">
+      <span class="emoji">♠️</span>
+      <h2>Texas Hold'em</h2>
+      <p>Full 6-seat poker table vs. AI opponents, with virtual chips, betting, side pots, and a buy-in system.</p>
+      <span class="play">▶ Play</span>
+    </a>
+
+    <a class="card" href="Flappy%20Chan%20-%20June%202026/flappy.html">
+      <span class="emoji">🌸</span>
+      <h2>Flappy-chan</h2>
+      <p>An anime-themed Flappy Bird! Pick from 8 cute dragon-girl avatars and fly through torii gates under falling sakura petals.</p>
+      <span class="play">▶ Play</span>
+    </a>
+
+    <a class="card" href="Guess%20Game%20-%20June%202026/index.html">
+      <span class="emoji">🎯</span>
+      <h2>Number Guessing Game</h2>
+      <p>Guess the secret number across three difficulty levels, with a leaderboard and a reverse mode where the computer guesses!</p>
+      <span class="play">▶ Play</span>
+    </a>
+  </div>
+
+  <footer>Made with 🩵 using Claude Code · 2026</footer>
+</div>
+</body>
+</html>
