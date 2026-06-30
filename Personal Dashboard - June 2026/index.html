@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --card:#1b1b2e; --card2:#23233b; --text:#e8e8f4; --muted:#9a9ac0; --accent:#7c6cff; --accent2:#ff7eb3; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at 20% 10%, #2a2150 0%, #16162a 55%, #0d0d18 100%);
+    color: var(--text); min-height: 100vh; padding: 1.5rem;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  /* hero */
+  .hero { text-align: center; margin-bottom: 1.5rem; }
+  .clock { font-size: 4rem; font-weight: 800; letter-spacing: 1px; line-height: 1; }
+  .clock .ampm { font-size: 1.5rem; color: var(--muted); margin-left: 0.4rem; }
+  .date { color: var(--muted); margin-top: 0.3rem; font-size: 1rem; }
+  .greeting { font-size: 1.5rem; margin-top: 0.6rem; font-weight: 600; }
+  .greeting #name { color: var(--accent2); cursor: pointer; border-bottom: 1px dashed transparent; }
+  .greeting #name:hover { border-bottom-color: var(--accent2); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; }
+  .card {
+    background: var(--card); border: 1px solid #2e2e4a; border-radius: 18px; padding: 1.2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .card h2 { font-size: 1rem; margin-bottom: 0.9rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text); }
+  .card h2 .sub { margin-left: auto; font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+
+  /* weather */
+  .weather-main { display: flex; align-items: center; gap: 0.75rem; }
+  .weather-main .icon { font-size: 2.8rem; }
+  .weather-main .temp { font-size: 2.4rem; font-weight: 800; }
+  .weather-desc { color: var(--muted); margin-top: 0.3rem; }
+  .weather-loc { color: var(--muted); font-size: 0.85rem; }
+
+  /* todo */
+  .todo-input { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+  input[type="text"], textarea {
+    width: 100%; background: var(--card2); border: 1px solid #34345a; color: var(--text);
+    border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.9rem; outline: none; font-family: inherit;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  .icon-btn { background: var(--accent); border: none; color: #fff; border-radius: 10px; padding: 0 0.9rem; font-size: 1.1rem; cursor: pointer; }
+  .icon-btn:hover { filter: brightness(1.1); }
+  ul.todo-list { list-style: none; }
+  ul.todo-list li { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid #2a2a45; }
+  ul.todo-list li:last-child { border-bottom: none; }
+  ul.todo-list li.done .txt { text-decoration: line-through; color: var(--muted); }
+  ul.todo-list .txt { flex: 1; cursor: pointer; font-size: 0.92rem; }
+  ul.todo-list .del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
+  ul.todo-list .del:hover { color: var(--accent2); }
+  .empty { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 0.5rem 0; }
+
+  /* links */
+  .links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .links a {
+    display: flex; align-items: center; gap: 0.4rem; text-decoration: none; color: var(--text);
+    background: var(--card2); border: 1px solid #34345a; border-radius: 10px; padding: 0.45rem 0.7rem; font-size: 0.85rem;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .links a:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .links a .del { color: var(--muted); margin-left: 0.2rem; }
+  .add-link { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
+  .add-link input { font-size: 0.8rem; padding: 0.4rem 0.6rem; }
+
+  textarea#notes { min-height: 160px; resize: vertical; line-height: 1.5; }
+  .saved-tag { font-size: 0.7rem; color: #4ade80; opacity: 0; transition: opacity 0.3s; }
+  .saved-tag.show { opacity: 1; }
+
+  .quote { font-style: italic; color: var(--muted); text-align: center; margin-top: 1.5rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <div class="greeting" id="greeting"></div>
+  </div>
+
+  <div class="grid">
+    <!-- Weather -->
+    <div class="card">
+      <h2>🌤️ Weather <span class="sub" id="weather-sub"></span></h2>
+      <div id="weather-content"><div class="empty">Loading weather…</div></div>
+    </div>
+
+    <!-- To-Do -->
+    <div class="card">
+      <h2>✅ To-Do <span class="sub" id="todo-count"></span></h2>
+      <div class="todo-input">
+        <input type="text" id="todo-text" placeholder="Add a task…" maxlength="120" />
+        <button class="icon-btn" onclick="addTodo()">＋</button>
+      </div>
+      <ul class="todo-list" id="todo-list"></ul>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="card">
+      <h2>🔗 Quick Links</h2>
+      <div class="links" id="links"></div>
+      <div class="add-link">
+        <input type="text" id="link-name" placeholder="Name" />
+        <input type="text" id="link-url" placeholder="https://…" />
+        <button class="icon-btn" onclick="addLink()">＋</button>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card">
+      <h2>📝 Notes <span class="saved-tag" id="notes-saved">saved ✓</span></h2>
+      <textarea id="notes" placeholder="Jot anything down — it saves automatically…"></textarea>
+    </div>
+  </div>
+
+  <div class="quote" id="quote"></div>
+</div>
+
+<script>
+// ================= Greeting + name =================
+function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch (e) { return def; } }
+function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+let name = load("dash_name", "friend");
+
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  document.getElementById("clock").innerHTML = `${h12}:${m}<span class="ampm">${ampm}</span>`;
+  document.getElementById("date").textContent =
+    now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const part = h < 12 ? "morning" : h < 18 ? "afternoon" : "evening";
+  document.getElementById("greeting").innerHTML =
+    `Good ${part}, <span id="name" onclick="renameUser()" title="Click to change your name">${name}</span>! 👋`;
+}
+function renameUser() {
+  const n = (prompt("What's your name?", name) || "").trim();
+  if (n) { name = n; save("dash_name", name); updateClock(); }
+}
+
+// ================= Weather (Open-Meteo, no API key) =================
+const WEATHER_CODES = {
+  0: ["Clear sky", "☀️"], 1: ["Mainly clear", "🌤️"], 2: ["Partly cloudy", "⛅"], 3: ["Overcast", "☁️"],
+  45: ["Foggy", "🌫️"], 48: ["Rime fog", "🌫️"], 51: ["Light drizzle", "🌦️"], 53: ["Drizzle", "🌦️"],
+  55: ["Heavy drizzle", "🌧️"], 61: ["Light rain", "🌦️"], 63: ["Rain", "🌧️"], 65: ["Heavy rain", "🌧️"],
+  71: ["Light snow", "🌨️"], 73: ["Snow", "❄️"], 75: ["Heavy snow", "❄️"], 77: ["Snow grains", "🌨️"],
+  80: ["Rain showers", "🌦️"], 81: ["Rain showers", "🌧️"], 82: ["Violent showers", "⛈️"],
+  85: ["Snow showers", "🌨️"], 86: ["Snow showers", "❄️"], 95: ["Thunderstorm", "⛈️"],
+  96: ["Thunderstorm + hail", "⛈️"], 99: ["Thunderstorm + hail", "⛈️"],
+};
+function loadWeather() {
+  if (!navigator.geolocation) { weatherFail("Geolocation not supported"); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+    () => weatherFail("Location permission denied"),
+    { timeout: 8000 }
+  );
+}
+function weatherFail(msg) {
+  document.getElementById("weather-content").innerHTML =
+    `<div class="empty">${msg}.<br>Allow location access &amp; reload for live weather.</div>`;
+}
+async function fetchWeather(lat, lon) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const c = d.current;
+    const [desc, icon] = WEATHER_CODES[c.weather_code] || ["—", "🌡️"];
+    document.getElementById("weather-content").innerHTML = `
+      <div class="weather-main">
+        <span class="icon">${icon}</span>
+        <div>
+          <div class="temp">${Math.round(c.temperature_2m)}°F</div>
+          <div class="weather-desc">${desc} · 💨 ${Math.round(c.wind_speed_10m)} mph</div>
+        </div>
+      </div>
+      <div class="weather-loc">📍 ${lat.toFixed(2)}, ${lon.toFixed(2)}</div>`;
+    document.getElementById("weather-sub").textContent = "now";
+  } catch (e) {
+    weatherFail("Couldn't load weather");
+  }
+}
+
+// ================= To-Do =================
+let todos = load("dash_todos", []);
+function renderTodos() {
+  const list = document.getElementById("todo-list");
+  if (todos.length === 0) { list.innerHTML = `<div class="empty">Nothing yet — add your first task!</div>`; }
+  else {
+    list.innerHTML = todos.map((t, i) => `
+      <li class="${t.done ? "done" : ""}">
+        <span>${t.done ? "✅" : "⬜"}</span>
+        <span class="txt" onclick="toggleTodo(${i})">${escapeHtml(t.text)}</span>
+        <button class="del" onclick="deleteTodo(${i})">✕</button>
+      </li>`).join("");
+  }
+  const left = todos.filter(t => !t.done).length;
+  document.getElementById("todo-count").textContent = left ? `${left} left` : (todos.length ? "all done! 🎉" : "");
+}
+function addTodo() {
+  const input = document.getElementById("todo-text");
+  const text = input.value.trim();
+  if (!text) return;
+  todos.push({ text, done: false });
+  input.value = ""; save("dash_todos", todos); renderTodos();
+}
+function toggleTodo(i) { todos[i].done = !todos[i].done; save("dash_todos", todos); renderTodos(); }
+function deleteTodo(i) { todos.splice(i, 1); save("dash_todos", todos); renderTodos(); }
+document.getElementById("todo-text").addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
+
+// ================= Quick Links =================
+const DEFAULT_LINKS = [
+  { name: "Gmail", url: "https://mail.google.com" },
+  { name: "Calendar", url: "https://calendar.google.com" },
+  { name: "YouTube", url: "https://youtube.com" },
+  { name: "GitHub", url: "https://github.com" },
+];
+let links = load("dash_links", DEFAULT_LINKS);
+function faviconFor(url) {
+  try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`; } catch (e) { return ""; }
+}
+function renderLinks() {
+  document.getElementById("links").innerHTML = links.map((l, i) => `
+    <a href="${l.url}" target="_blank" rel="noopener">
+      <img src="${faviconFor(l.url)}" width="16" height="16" alt="" onerror="this.style.display='none'" />
+      ${escapeHtml(l.name)}
+      <span class="del" onclick="event.preventDefault(); deleteLink(${i})">✕</span>
+    </a>`).join("");
+}
+function addLink() {
+  const n = document.getElementById("link-name").value.trim();
+  let u = document.getElementById("link-url").value.trim();
+  if (!n || !u) return;
+  if (!/^https?:\/\//.test(u)) u = "https://" + u;
+  links.push({ name: n, url: u });
+  document.getElementById("link-name").value = "";
+  document.getElementById("link-url").value = "";
+  save("dash_links", links); renderLinks();
+}
+function deleteLink(i) { links.splice(i, 1); save("dash_links", links); renderLinks(); }
+
+// ================= Notes =================
+const notesEl = document.getElementById("notes");
+notesEl.value = load("dash_notes", "");
+let notesTimer = null;
+notesEl.addEventListener("input", () => {
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => {
+    save("dash_notes", notesEl.value);
+    const tag = document.getElementById("notes-saved");
+    tag.classList.add("show");
+    setTimeout(() => tag.classList.remove("show"), 1200);
+  }, 400);
+});
+
+// ================= Quote of the day =================
+const QUOTES = [
+  "The secret of getting ahead is getting started.",
+  "Small steps every day add up to big results.",
+  "Done is better than perfect.",
+  "Focus on progress, not perfection.",
+  "You don't have to be great to start, but you have to start to be great.",
+  "Make today count.",
+  "Discipline is choosing between what you want now and what you want most.",
+];
+function showQuote() {
+  const day = Math.floor(Date.now() / 86400000);
+  document.getElementById("quote").textContent = "“" + QUOTES[day % QUOTES.length] + "”";
+}
+
+// ================= utils =================
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// ================= boot =================
+updateClock(); setInterval(updateClock, 1000);
+renderTodos(); renderLinks(); showQuote(); loadWeather();
+</script>
+</body>
+</html>
